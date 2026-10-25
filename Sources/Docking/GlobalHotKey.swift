@@ -68,6 +68,7 @@ final class GlobalHotKeyManager: @unchecked Sendable {
                 &hotKeyID
             )
             if status == noErr && hotKeyID.id == 1 {
+                NSLog("[Understage] Global hotkey event triggered")
                 let manager = Unmanaged<GlobalHotKeyManager>.fromOpaque(userData).takeUnretainedValue()
                 Task { @MainActor in
                     manager.onTrigger?()
@@ -88,7 +89,8 @@ final class GlobalHotKeyManager: @unchecked Sendable {
         guard installStatus == noErr else { return }
 
         let hotKeyID = EventHotKeyID(signature: OSType(0x554E4453), id: 1) // 'UNDS'
-        RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetEventDispatcherTarget(), 0, &hotKeyRef)
+        let regStatus = RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetEventDispatcherTarget(), 0, &hotKeyRef)
+        NSLog("[Understage] Global hotkey registered for %@ (status: %d)", option.displayName, regStatus)
     }
 
     func unregister() {

@@ -18,6 +18,7 @@ struct UnderstageApp: App {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSLog("[Understage] Application did finish launching")
         NSApp.setActivationPolicy(.accessory)
         DockingController.shared.start()
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in

@@ -39,7 +39,11 @@ final class DockingController {
     private init() {}
 
     func start() {
+        NSLog("[Understage] DockingController starting...")
         VendorSettings.shared.applyHotKey()
+        let perms = PermissionGate.current()
+        NSLog("[Understage] Initial permissions: accessibility=%d, finderAutomation=%d",
+              perms.accessibility ? 1 : 0, perms.finderAutomation ? 1 : 0)
         refresh()
         let timer = Timer(timeInterval: 0.25, repeats: true) { _ in
             MainActor.assumeIsolated {
@@ -87,7 +91,12 @@ final class DockingController {
             syncFrames()
             return
         }
-        appModel.permissions = PermissionGate.current()
+        let currentPerms = PermissionGate.current()
+        if currentPerms != appModel.permissions {
+            NSLog("[Understage] Permissions changed: accessibility=%d, finderAutomation=%d",
+                  currentPerms.accessibility ? 1 : 0, currentPerms.finderAutomation ? 1 : 0)
+            appModel.permissions = currentPerms
+        }
         installObserverIfNeeded()
 
         let ourAppIsActive = NSApp.isActive
@@ -96,6 +105,9 @@ final class DockingController {
 
         guard appModel.permissions.accessibility else {
             pauseDisplayLink()
+            if panels.isEmpty {
+                NSLog("[Understage] Accessibility not granted, showing onboarding bar")
+            }
             showOnboardingBar()
             return
         }
@@ -167,6 +179,7 @@ final class DockingController {
         }
 
         if appModel.trackedWindowCount != desired.count {
+            NSLog("[Understage] Tracked Finder window count changed: %d -> %d", appModel.trackedWindowCount, desired.count)
             appModel.trackedWindowCount = desired.count
         }
         missingFrameStreak = 0

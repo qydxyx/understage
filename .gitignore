@@ -12,4 +12,5 @@ xcuserdata/
 *.dia
 *.swiftdeps
 *.swiftconstvalues
+*.profraw
 
