@@ -36,6 +36,25 @@ enum FinderAX {
         NSWorkspace.shared.frontmostApplication?.bundleIdentifier == finderBundleID
     }
 
+    static func activateFinder() {
+        if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == finderBundleID }) {
+            app.activate()
+        }
+    }
+
+    static func focusedWindow() -> AXFinderWindow? {
+        guard let app = applicationElement() else { return nil }
+        if let focused: AXUIElement = AXAttr.copy(app, "AXFocusedWindow"),
+           let described = describe(focused), !described.isMinimized {
+            return described
+        }
+        if let main: AXUIElement = AXAttr.copy(app, "AXMainWindow"),
+           let described = describe(main), !described.isMinimized {
+            return described
+        }
+        return windows().first { !$0.isMinimized }
+    }
+
     private static func describe(_ element: AXUIElement) -> AXFinderWindow? {
         let role: String? = AXAttr.copy(element, "AXRole")
         if let role, role != "AXWindow" { return nil }

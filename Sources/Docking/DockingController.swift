@@ -39,6 +39,7 @@ final class DockingController {
     private init() {}
 
     func start() {
+        VendorSettings.shared.applyHotKey()
         refresh()
         let timer = Timer(timeInterval: 0.25, repeats: true) { _ in
             MainActor.assumeIsolated {
@@ -55,6 +56,29 @@ final class DockingController {
             MainActor.assumeIsolated {
                 DockingController.shared.refresh()
             }
+        }
+    }
+
+    func toggleOrFocusFrontmostBar() {
+        if NSApp.isActive && panels.values.contains(where: { $0.isKeyWindow }) {
+            FinderAX.activateFinder()
+            return
+        }
+
+        refresh()
+
+        if let focused = FinderAX.focusedWindow(), let panel = panels[focused.key] {
+            panel.focusForTyping()
+            return
+        }
+
+        if let desktop = panels[.desktop] {
+            desktop.focusForTyping()
+            return
+        }
+
+        if let panel = panels.values.first {
+            panel.focusForTyping()
         }
     }
 

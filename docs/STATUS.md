@@ -7,5 +7,6 @@
 | M2 | Vendors + Predict | IMPLEMENTED (Keychain vendors, Predict deny/auto-run tests) |
 | M3 | Agent + Skills + Undo | IMPLEMENTED (agent JSON loop, skills, undo, job queue) |
 | M4 | Rules, Ideas, CLI, release | IMPLEMENTED (Rules/Favorites/Ideas, `understage` CLI, `make dist`). Apple Foundation Models and Sparkle notarized cask deferred. |
+| M4+ | Keyboard UX & Global Hotkey | IMPLEMENTED (Carbon Global Hotkey Option+Space/Custom, ↑/↓ history navigation, Esc cancel & focus return, APFS target separation) |
 
 Spike notes: `docs/spikes/S0-finder-dock.md`

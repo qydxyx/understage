@@ -5,6 +5,7 @@ struct StageBarView: View {
     @ObservedObject private var settings = VendorSettings.shared
     @ObservedObject private var undo = UndoJournal.shared
     @ObservedObject private var rules = RuleStore.shared
+    @FocusState private var isFieldFocused: Bool
     var onFieldFocused: () -> Void
 
     var body: some View {
@@ -33,6 +34,21 @@ struct StageBarView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .shadow(color: .black.opacity(0.18), radius: 8, y: 2)
+        .onChange(of: model.focusToken) { _, _ in
+            isFieldFocused = true
+        }
+        .onKeyPress(.upArrow) {
+            model.navigateHistoryUp()
+            return .handled
+        }
+        .onKeyPress(.downArrow) {
+            model.navigateHistoryDown()
+            return .handled
+        }
+        .onKeyPress(.escape) {
+            model.handleEscape()
+            return .handled
+        }
     }
 
     @ViewBuilder
@@ -77,11 +93,15 @@ struct StageBarView: View {
         chips
         TextField("Enter query or command", text: $model.query)
             .textFieldStyle(.plain)
+            .focused($isFieldFocused)
             .disabled({
                 if case .thinking = model.phase { true } else { false }
             }())
             .onSubmit(model.submit)
-            .onTapGesture(perform: onFieldFocused)
+            .onTapGesture {
+                isFieldFocused = true
+                onFieldFocused()
+            }
         Button {
             model.toggleIdeas()
         } label: {

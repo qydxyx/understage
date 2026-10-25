@@ -39,6 +39,10 @@ final class StageBarPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
+    override func cancelOperation(_ sender: Any?) {
+        model.handleEscape()
+    }
+
     func place(frame: CGRect) {
         let current = self.frame
         let sameSize = abs(current.width - frame.width) < 0.5 && abs(current.height - frame.height) < 0.5
@@ -60,5 +64,6 @@ final class StageBarPanel: NSPanel {
     func focusForTyping() {
         NSApp.activate(ignoringOtherApps: true)
         makeKeyAndOrderFront(nil)
+        model.requestFieldFocus()
     }
 }

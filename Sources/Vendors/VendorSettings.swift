@@ -28,6 +28,13 @@ final class VendorSettings: ObservableObject {
         didSet { UserDefaults.standard.set(allowAgent, forKey: Keys.allowAgent) }
     }
 
+    @Published var hotKey: HotKeyOption {
+        didSet {
+            UserDefaults.standard.set(hotKey.rawValue, forKey: Keys.hotKey)
+            applyHotKey()
+        }
+    }
+
     @Published var ollamaReachable = false
     @Published var lmStudioReachable = false
 
@@ -37,6 +44,7 @@ final class VendorSettings: ObservableObject {
         static let customBase = "understage.customBaseURL"
         static let autoRun = "understage.autoRun"
         static let allowAgent = "understage.allowAgent"
+        static let hotKey = "understage.hotKey"
     }
 
     private var modelsByVendor: [String: String]
@@ -62,6 +70,14 @@ final class VendorSettings: ObservableObject {
             allowAgent = true
         } else {
             allowAgent = UserDefaults.standard.bool(forKey: Keys.allowAgent)
+        }
+        let storedHotKey = UserDefaults.standard.string(forKey: Keys.hotKey)
+        hotKey = storedHotKey.flatMap(HotKeyOption.init(rawValue:)) ?? .optionSpace
+    }
+
+    func applyHotKey() {
+        GlobalHotKeyManager.shared.register(option: hotKey) {
+            DockingController.shared.toggleOrFocusFrontmostBar()
         }
     }
 

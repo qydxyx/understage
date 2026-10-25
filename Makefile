@@ -1,7 +1,7 @@
 .PHONY: all gen build test run cli install dist clean
 
 SCHEME := Understage
-CLI_SCHEME := understage
+CLI_SCHEME := UnderstageCLI
 DEST := platform=macOS,arch=arm64
 DERIVED := .derived
 PREFIX ?= /usr/local

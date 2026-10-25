@@ -39,6 +39,16 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Section("Shortcut") {
+                Picker("Global Hotkey", selection: $settings.hotKey) {
+                    ForEach(HotKeyOption.allCases) { opt in
+                        Text(opt.displayName).tag(opt)
+                    }
+                }
+                Text("Summons or focuses the Understage command bar under the active Finder window.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Section("Rules") {
                 ForEach(rules.rules) { rule in
                     HStack {

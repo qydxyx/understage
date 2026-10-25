@@ -16,7 +16,10 @@ final class StageBarModel: ObservableObject {
     @Published var phase: BarPhase = .idle
     @Published var thinkingNote: String = ""
     @Published var showIdeas = false
+    @Published var focusToken = UUID()
     private var lastSubmittedQuery = ""
+    private var historyIndex: Int?
+    private var stashedQuery = ""
 
     private var session: CommandRunner.Session?
     private var work: Task<Void, Never>?
@@ -55,11 +58,54 @@ final class StageBarModel: ObservableObject {
         DockingController.shared.refresh()
     }
 
+    func requestFieldFocus() {
+        focusToken = UUID()
+    }
+
+    func navigateHistoryUp() {
+        let entries = TaskHistory.shared.entries
+        guard !entries.isEmpty else { return }
+        if historyIndex == nil {
+            stashedQuery = query
+            historyIndex = 0
+            query = entries[0].query
+        } else if let current = historyIndex, current + 1 < entries.count {
+            historyIndex = current + 1
+            query = entries[current + 1].query
+        }
+    }
+
+    func navigateHistoryDown() {
+        guard let current = historyIndex else { return }
+        let entries = TaskHistory.shared.entries
+        if current > 0 {
+            historyIndex = current - 1
+            query = entries[current - 1].query
+        } else {
+            historyIndex = nil
+            query = stashedQuery
+        }
+    }
+
+    func handleEscape() {
+        if phase != .idle {
+            cancel()
+            return
+        }
+        if !query.isEmpty {
+            query = ""
+            historyIndex = nil
+            return
+        }
+        FinderAX.activateFinder()
+    }
+
     func cancel() {
         work?.cancel()
         session?.cancel()
         continueAfterRun = false
         awaitingAsk = false
+        historyIndex = nil
         phase = .idle
         DockingController.shared.refresh()
     }
@@ -96,6 +142,7 @@ final class StageBarModel: ObservableObject {
     private func parseQuery() {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        historyIndex = nil
         query = ""
         lastSubmittedQuery = trimmed
         showIdeas = false
