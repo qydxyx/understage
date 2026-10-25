@@ -1,0 +1,127 @@
+name: Understage
+options:
+  bundleIdPrefix: design.understage
+  deploymentTarget:
+    macOS: "15.0"
+  developmentLanguage: en
+  createIntermediateGroups: true
+  knownRegions:
+    - en
+    - zh-Hans
+    - Base
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    MACOSX_DEPLOYMENT_TARGET: "15.0"
+    SDKROOT: macosx
+    ARCHS: arm64
+    EXCLUDED_ARCHS: x86_64
+    SUPPORTED_PLATFORMS: macosx
+    SUPPORTS_MACCATALYST: NO
+    ENABLE_APP_SANDBOX: NO
+    ENABLE_HARDENED_RUNTIME: YES
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    COMBINE_HIDPI_IMAGES: YES
+    STRING_CATALOG_GENERATE_SYMBOLS: YES
+targets:
+  Understage:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+      - path: Sources
+      - path: Resources
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: design.understage.app
+        PRODUCT_NAME: Understage
+        EXECUTABLE_NAME: Understage
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Understage
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+        INFOPLIST_KEY_LSMinimumSystemVersion: "15.0"
+        INFOPLIST_KEY_LSUIElement: YES
+        INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright © 2026 Understage contributors"
+        INFOPLIST_KEY_NSAppleEventsUsageDescription: "Understage reads the current Finder folder and selected files so the command bar can act on them."
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: NO
+        SWIFT_EMIT_LOC_STRINGS: YES
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
+        SWIFT_STRICT_CONCURRENCY: complete
+        INFOPLIST_FILE: App/Info.plist
+    entitlements:
+      path: App/Understage.entitlements
+  UnderstageTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: Understage
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: design.understage.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
+        SWIFT_STRICT_CONCURRENCY: complete
+  understage:
+    type: tool
+    platform: macOS
+    sources:
+      - path: CLI
+      - path: Sources/Instant
+      - path: Sources/Execute/CommandRunner.swift
+      - path: Sources/Execute/ToolDetector.swift
+      - path: Sources/Execute/UniqueURL.swift
+      - path: Sources/Predict
+      - path: Sources/FinderBridge
+      - path: Sources/History/UndoJournal.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: design.understage.cli
+        PRODUCT_NAME: understage
+        EXECUTABLE_NAME: understage
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+schemes:
+  Understage:
+    build:
+      targets:
+        Understage: all
+        UnderstageTests: [test]
+        understage: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: false
+      targets:
+        - UnderstageTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+  understage:
+    build:
+      targets:
+        understage: all
+    run:
+      config: Release

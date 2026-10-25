@@ -1,0 +1,15 @@
+.DS_Store
+.derived/
+DerivedData/
+build/
+*.xcodeproj
+xcuserdata/
+*.xcuserstate
+.swiftpm/
+.idea/
+*.o
+*.d
+*.dia
+*.swiftdeps
+*.swiftconstvalues
+
