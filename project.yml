@@ -73,7 +73,7 @@ targets:
         SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
         SWIFT_APPROACHABLE_CONCURRENCY: YES
         SWIFT_STRICT_CONCURRENCY: complete
-  understage:
+  UnderstageCLI:
     type: tool
     platform: macOS
     sources:
@@ -90,6 +90,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: design.understage.cli
         PRODUCT_NAME: understage
         EXECUTABLE_NAME: understage
+        PRODUCT_MODULE_NAME: UnderstageCLI
         MACOSX_DEPLOYMENT_TARGET: "15.0"
         SWIFT_VERSION: "6.0"
         SWIFT_STRICT_CONCURRENCY: complete
@@ -105,7 +106,6 @@ schemes:
       targets:
         Understage: all
         UnderstageTests: [test]
-        understage: all
     run:
       config: Debug
     test:
@@ -122,6 +122,6 @@ schemes:
   understage:
     build:
       targets:
-        understage: all
+        UnderstageCLI: all
     run:
       config: Release
