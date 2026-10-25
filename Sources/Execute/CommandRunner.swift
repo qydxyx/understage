@@ -75,6 +75,9 @@ enum CommandRunner {
     private static func perform(_ step: PlanStep, cwd: URL?, session: Session) async throws -> (log: String?, undos: [UndoAction]) {
         switch step {
         case .process(let executable, let arguments):
+            for arg in arguments {
+                await ensureDownloadedIfNeeded(arg)
+            }
             let log = try await runProcess(executable, arguments, cwd: cwd, session: session)
             return (log, [])
         case .trash(let url):
@@ -150,7 +153,10 @@ enum CommandRunner {
                 if proc.terminationStatus == 0 {
                     continuation.resume(returning: out.trimmingCharacters(in: .whitespacesAndNewlines))
                 } else {
-                    let message = out.trimmingCharacters(in: .whitespacesAndNewlines)
+                    var message = out.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if message.contains("Cannot extract image from file") || proc.terminationStatus == 13 {
+                        message += "\n(Tip: If this file is stored in Google Drive / iCloud, please right-click it in Finder and choose 'Always keep on this device' or ensure it is downloaded.)"
+                    }
                     continuation.resume(
                         throwing: NSError(
                             domain: "Understage",
@@ -172,4 +178,30 @@ enum CommandRunner {
         }
     }
 
+    private static func ensureDownloadedIfNeeded(_ path: String) async {
+        guard path.starts(with: "/") else { return }
+        let url = URL(fileURLWithPath: path)
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir), !isDir.boolValue else {
+            return
+        }
+        guard let values = try? url.resourceValues(forKeys: [.isUbiquitousItemKey, .ubiquitousItemDownloadingStatusKey]),
+              values.isUbiquitousItem == true else {
+            return
+        }
+        if values.ubiquitousItemDownloadingStatus == .current {
+            return
+        }
+        NSLog("[Understage] Requesting download for cloud file: %@", url.lastPathComponent)
+        try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+        let start = Date()
+        while Date().timeIntervalSince(start) < 5.0 {
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            if let updated = try? url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey]),
+               updated.ubiquitousItemDownloadingStatus == .current {
+                NSLog("[Understage] Cloud file downloaded: %@", url.lastPathComponent)
+                return
+            }
+        }
+    }
 }

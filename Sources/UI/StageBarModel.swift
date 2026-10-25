@@ -142,6 +142,7 @@ final class StageBarModel: ObservableObject {
     private func parseQuery() {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        NSLog("[Understage] Query submitted: '%@'", trimmed)
         historyIndex = nil
         query = ""
         lastSubmittedQuery = trimmed
@@ -398,6 +399,7 @@ final class StageBarModel: ObservableObject {
         self.session = session
         continueAfterRun = false
         phase = .running(plan)
+        NSLog("[Understage] Executing plan: '%@'", plan.summary)
         let jobID = JobQueue.shared.start(query: plan.query, summary: plan.summary)
         DockingController.shared.refresh()
         let report = await CommandRunner.runWithUndo(plan, session: session)
@@ -406,6 +408,7 @@ final class StageBarModel: ObservableObject {
             let display = text.isEmpty ? plan.summary : text
             lastResultText = display
             phase = .result(ok: true, text: display)
+            NSLog("[Understage] Plan execution succeeded: '%@'", plan.summary)
             TaskHistory.shared.record(query: plan.query, summary: plan.summary, ok: true)
             UndoJournal.shared.record(query: plan.query, summary: plan.summary, actions: report.undos)
             JobQueue.shared.finish(jobID, status: .done, summary: plan.summary)
@@ -416,6 +419,7 @@ final class StageBarModel: ObservableObject {
         case .failure(let text):
             lastResultText = text
             phase = .result(ok: false, text: text)
+            NSLog("[Understage] Plan execution failed: '%@' - error: %@", plan.summary, text)
             TaskHistory.shared.record(query: plan.query, summary: text, ok: false)
             JobQueue.shared.finish(jobID, status: .failed, summary: text)
             if continueAgent, recordContinue {
