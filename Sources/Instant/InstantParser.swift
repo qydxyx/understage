@@ -38,6 +38,15 @@ enum InstantAction: Equatable, Sendable {
     case copyPath
     case selectAll(ext: String)
     case selectLast(ext: String)
+    case mergePDF
+    case splitPDF
+    case ocr
+    case renameNumbered
+    case renameDatePrefix
+    case renameCase(lowercase: Bool)
+    case renamePrefix(String)
+    case renameSuffix(String)
+    case renameReplace(target: String, replacement: String)
 }
 
 enum InstantParser {
@@ -73,6 +82,24 @@ enum InstantParser {
         if matches(compact, ["zip", "压缩", "打包"]) { return .zip }
         if matches(compact, ["duplicate", "副本", "复制一份", "拷贝一份"]) { return .duplicate }
         if matches(compact, ["trash", "废纸篓", "丢进废纸篓", "删掉", "删除"]) { return .trash }
+
+        // PDF Operations
+        if matches(compact, ["merge pdf", "pdf merge", "combine pdf", "合并 pdf", "合并为 pdf", "合并为pdf", "合并pdf", "拼合 pdf", "组合 pdf"]) {
+            return .mergePDF
+        }
+        if matches(compact, ["split pdf", "pdf split", "拆分 pdf", "拆分pdf", "按页拆分", "拆分每页"]) {
+            return .splitPDF
+        }
+
+        // OCR
+        if matches(compact, ["ocr", "提取文字", "文字提取", "识别文字", "文字识别", "extract text", "recognize text"]) {
+            return .ocr
+        }
+
+        // Batch Rename
+        if let rename = parseRename(compact: compact, lower: lower) {
+            return rename
+        }
 
         let formats: [(OutputFormat, [String])] = [
             (.jpg, ["jpg", "jpeg", "转jpg"]),
@@ -152,5 +179,79 @@ enum InstantParser {
 
     private static func matches(_ compact: String, _ aliases: [String]) -> Bool {
         aliases.contains { compact == $0 || compact.hasPrefix($0 + " ") || compact.hasSuffix(" " + $0) }
+    }
+
+    private static func parseRename(compact: String, lower: String) -> InstantAction? {
+        if matches(compact, ["1 2 3", "123", "number", "numbering", "number files", "序号", "按序号", "序号重命名", "重命名 1 2 3", "按序号命名", "加序号"]) {
+            return .renameNumbered
+        }
+        if matches(compact, ["date prefix", "add date", "add date prefix", "加日期", "日期前缀", "按日期重命名", "添加日期前缀", "加时间戳", "加日期前缀"]) {
+            return .renameDatePrefix
+        }
+        if matches(compact, ["lowercase", "to lowercase", "转小写", "全小写", "改成小写", "全部小写"]) {
+            return .renameCase(lowercase: true)
+        }
+        if matches(compact, ["uppercase", "to uppercase", "转大写", "全大写", "改成大写", "全部大写"]) {
+            return .renameCase(lowercase: false)
+        }
+
+        // Prefix: "prefix foo", "add prefix foo", "加前缀 foo", "前缀 foo"
+        let prefixKeys = ["add prefix ", "prefix ", "加前缀 ", "添加前缀 ", "前缀 "]
+        for key in prefixKeys {
+            if lower.hasPrefix(key) {
+                let val = String(lower.dropFirst(key.count)).trimmingCharacters(in: .whitespaces)
+                if !val.isEmpty { return .renamePrefix(val) }
+            }
+        }
+
+        // Suffix: "suffix foo", "add suffix foo", "加后缀 foo", "后缀 foo"
+        let suffixKeys = ["add suffix ", "suffix ", "加后缀 ", "添加后缀 ", "后缀 "]
+        for key in suffixKeys {
+            if lower.hasPrefix(key) {
+                let val = String(lower.dropFirst(key.count)).trimmingCharacters(in: .whitespaces)
+                if !val.isEmpty { return .renameSuffix(val) }
+            }
+        }
+
+        // Replace: "replace foo with bar"
+        if lower.hasPrefix("replace ") && lower.contains(" with ") {
+            let withoutReplace = String(lower.dropFirst("replace ".count))
+            let parts = withoutReplace.components(separatedBy: " with ")
+            if parts.count == 2 {
+                let target = parts[0].trimmingCharacters(in: .whitespaces)
+                let rep = parts[1].trimmingCharacters(in: .whitespaces)
+                if !target.isEmpty {
+                    return .renameReplace(target: target, replacement: rep)
+                }
+            }
+        }
+
+        // Chinese Replace patterns
+        let chinesePatterns: [(prefix: String, mid: String)] = [
+            ("把 ", " 替换为 "),
+            ("把 ", " 换成 "),
+            ("把 ", " 替换成 "),
+            ("把 ", " 改为 "),
+            ("将 ", " 替换为 "),
+            ("将 ", " 换成 "),
+            ("将 ", " 替换成 "),
+            ("替换 ", " 为 "),
+            ("替换 ", " 成 "),
+        ]
+        for pat in chinesePatterns {
+            if lower.hasPrefix(pat.prefix) && lower.contains(pat.mid) {
+                let withoutPrefix = String(lower.dropFirst(pat.prefix.count))
+                let parts = withoutPrefix.components(separatedBy: pat.mid)
+                if parts.count == 2 {
+                    let target = parts[0].trimmingCharacters(in: .whitespaces)
+                    let rep = parts[1].trimmingCharacters(in: .whitespaces)
+                    if !target.isEmpty {
+                        return .renameReplace(target: target, replacement: rep)
+                    }
+                }
+            }
+        }
+
+        return nil
     }
 }

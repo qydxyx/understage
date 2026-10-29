@@ -119,7 +119,7 @@ schemes:
       config: Debug
     archive:
       config: Release
-  understage:
+  UnderstageCLI:
     build:
       targets:
         UnderstageCLI: all

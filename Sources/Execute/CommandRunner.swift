@@ -1,6 +1,8 @@
 import AppKit
 import Foundation
 import os
+import PDFKit
+import Vision
 
 enum CommandRunner {
     enum Outcome: Equatable {
@@ -110,6 +112,12 @@ enum CommandRunner {
             try task.run()
             task.waitUntilExit()
             return ("Opened Terminal", [])
+        case .mergePDF(let sources, let dest):
+            return try mergePDF(sources: sources, dest: dest)
+        case .splitPDF(let source, let destFolder):
+            return try splitPDF(source: source, destFolder: destFolder)
+        case .ocr(let sources, let destTxt, let copyToPasteboard):
+            return try await ocr(sources: sources, destTxt: destTxt, copyToPasteboard: copyToPasteboard)
         }
     }
 
@@ -201,6 +209,155 @@ enum CommandRunner {
                updated.ubiquitousItemDownloadingStatus == .current {
                 NSLog("[Understage] Cloud file downloaded: %@", url.lastPathComponent)
                 return
+            }
+        }
+    }
+
+    private static func mergePDF(sources: [URL], dest: URL) throws -> (log: String?, undos: [UndoAction]) {
+        let outputDoc = PDFDocument()
+        var pageCount = 0
+        for source in sources {
+            let ext = source.pathExtension.lowercased()
+            if ext == "pdf" {
+                if let doc = PDFDocument(url: source) {
+                    for i in 0 ..< doc.pageCount {
+                        if let page = doc.page(at: i) {
+                            outputDoc.insert(page, at: pageCount)
+                            pageCount += 1
+                        }
+                    }
+                }
+            } else if let image = NSImage(contentsOf: source),
+                      image.representations.isEmpty == false,
+                      let page = PDFPage(image: image) {
+                outputDoc.insert(page, at: pageCount)
+                pageCount += 1
+            }
+        }
+        guard pageCount > 0 else {
+            throw NSError(
+                domain: "Understage",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No valid pages to merge."]
+            )
+        }
+        guard outputDoc.write(to: dest) else {
+            throw NSError(
+                domain: "Understage",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to write merged PDF to \(dest.lastPathComponent)"]
+            )
+        }
+        FinderScripting.select([dest])
+        return ("Merged \(sources.count) files (\(pageCount) pages) to \(dest.lastPathComponent)", [.trashCreated(dest.path)])
+    }
+
+    private static func splitPDF(source: URL, destFolder: URL) throws -> (log: String?, undos: [UndoAction]) {
+        guard let doc = PDFDocument(url: source) else {
+            throw NSError(
+                domain: "Understage",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Cannot open PDF: \(source.lastPathComponent)"]
+            )
+        }
+        let total = doc.pageCount
+        guard total > 1 else {
+            throw NSError(
+                domain: "Understage",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "PDF has only 1 page, no split needed."]
+            )
+        }
+        let baseName = source.deletingPathExtension().lastPathComponent
+        let digits = String(total).count
+        var createdURLs: [URL] = []
+        var undos: [UndoAction] = []
+        for i in 0 ..< total {
+            guard let page = doc.page(at: i) else { continue }
+            let singleDoc = PDFDocument()
+            singleDoc.insert(page, at: 0)
+            let pageNum = String(format: "%0\(digits)d", i + 1)
+            let pageName = "\(baseName)_page_\(pageNum).pdf"
+            let dest = UniqueURL.next(
+                in: destFolder,
+                name: pageName,
+                exists: { FileManager.default.fileExists(atPath: $0.path) }
+            )
+            if singleDoc.write(to: dest) {
+                createdURLs.append(dest)
+                undos.append(.trashCreated(dest.path))
+            }
+        }
+        FinderScripting.select(createdURLs)
+        return ("Split \(source.lastPathComponent) into \(createdURLs.count) pages", undos)
+    }
+
+    private static func ocr(sources: [URL], destTxt: URL?, copyToPasteboard: Bool) async throws -> (log: String?, undos: [UndoAction]) {
+        var allText: [String] = []
+        for source in sources {
+            let ext = source.pathExtension.lowercased()
+            if ext == "pdf" {
+                if let doc = PDFDocument(url: source) {
+                    var docText = ""
+                    for i in 0 ..< doc.pageCount {
+                        if let page = doc.page(at: i), let str = page.string, !str.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            docText += str + "\n"
+                        }
+                    }
+                    if !docText.isEmpty {
+                        allText.append(docText.trimmingCharacters(in: .whitespacesAndNewlines))
+                    }
+                }
+            } else {
+                let recognized = try await recognizeImageText(url: source)
+                if !recognized.isEmpty {
+                    allText.append(recognized)
+                }
+            }
+        }
+        let combined = allText.joined(separator: "\n\n---\n\n")
+        guard !combined.isEmpty else {
+            return ("No text recognized in selected file(s).", [])
+        }
+        var undos: [UndoAction] = []
+        if let dest = destTxt {
+            try combined.write(to: dest, atomically: true, encoding: .utf8)
+            undos.append(.trashCreated(dest.path))
+        }
+        if copyToPasteboard {
+            await MainActor.run {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(combined, forType: .string)
+            }
+        }
+        let preview = combined.prefix(80).replacingOccurrences(of: "\n", with: " ")
+        return ("OCR copied to clipboard (\(combined.count) chars): \"\(preview)…\"", undos)
+    }
+
+    private static func recognizeImageText(url: URL) async throws -> String {
+        guard let image = NSImage(contentsOf: url),
+              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            return ""
+        }
+        return try await withCheckedThrowingContinuation { continuation in
+            let request = VNRecognizeTextRequest { request, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                let observations = request.results as? [VNRecognizedTextObservation] ?? []
+                let strings = observations.compactMap { $0.topCandidates(1).first?.string }
+                continuation.resume(returning: strings.joined(separator: "\n"))
+            }
+            request.recognitionLevel = .accurate
+            request.recognitionLanguages = ["zh-Hans", "zh-Hant", "en-US"]
+            request.usesLanguageCorrection = true
+
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+            do {
+                try handler.perform([request])
+            } catch {
+                continuation.resume(throwing: error)
             }
         }
     }

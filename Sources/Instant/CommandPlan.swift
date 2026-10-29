@@ -8,6 +8,9 @@ enum PlanStep: Equatable, Sendable {
     case copyPasteboard(String)
     case select([URL])
     case openTerminal(URL)
+    case mergePDF(sources: [URL], dest: URL)
+    case splitPDF(source: URL, destFolder: URL)
+    case ocr(sources: [URL], destTxt: URL?, copyToPasteboard: Bool)
 }
 
 struct CommandPlan: Equatable, Sendable {

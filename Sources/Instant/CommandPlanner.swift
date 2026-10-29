@@ -67,6 +67,24 @@ enum CommandPlanner {
             return selectMatching(query: query, folder: folder, ext: ext, lastOnly: false)
         case .selectLast(let ext):
             return selectMatching(query: query, folder: folder, ext: ext, lastOnly: true)
+        case .mergePDF:
+            return planMergePDF(query: query, selected: selected, folder: folder, exists: exists)
+        case .splitPDF:
+            return planSplitPDF(query: query, selected: selected, folder: folder, exists: exists)
+        case .ocr:
+            return planOCR(query: query, selected: selected, folder: folder, exists: exists)
+        case .renameNumbered:
+            return planRenameNumbered(query: query, selected: selected, exists: exists)
+        case .renameDatePrefix:
+            return planRenameDatePrefix(query: query, selected: selected, exists: exists)
+        case .renameCase(let lowercase):
+            return planRenameCase(query: query, selected: selected, lowercase: lowercase, exists: exists)
+        case .renamePrefix(let prefix):
+            return planRenamePrefix(query: query, selected: selected, prefix: prefix, exists: exists)
+        case .renameSuffix(let suffix):
+            return planRenameSuffix(query: query, selected: selected, suffix: suffix, exists: exists)
+        case .renameReplace(let target, let replacement):
+            return planRenameReplace(query: query, selected: selected, target: target, replacement: replacement, exists: exists)
         }
     }
 
@@ -493,6 +511,205 @@ enum CommandPlanner {
             missingTool: name,
             error: hint
         )
+    }
+
+    private static func planMergePDF(
+        query: String,
+        selected: [SelectedItem],
+        folder: URL?,
+        exists: (URL) -> Bool
+    ) -> CommandPlan {
+        let files = selected.filter { !$0.isDirectory }.map(\.url)
+        let supported = files.filter { url in
+            let ext = url.pathExtension.lowercased()
+            return ext == "pdf" || ["jpg", "jpeg", "png", "heic", "webp", "gif"].contains(ext)
+        }
+        guard supported.count >= 2 else {
+            return fail(query, "Select at least 2 PDF or image files to merge.")
+        }
+        let targetFolder = folder ?? supported[0].deletingLastPathComponent()
+        let dest = UniqueURL.next(in: targetFolder, name: "merged.pdf", exists: exists)
+        return CommandPlan(
+            query: query,
+            summary: "Merge \(supported.count) files into \(dest.lastPathComponent)",
+            steps: [.mergePDF(sources: supported, dest: dest)],
+            creates: [dest],
+            trashes: [],
+            reveal: [dest],
+            autoRun: false,
+            workingDirectory: targetFolder
+        )
+    }
+
+    private static func planSplitPDF(
+        query: String,
+        selected: [SelectedItem],
+        folder: URL?,
+        exists: (URL) -> Bool
+    ) -> CommandPlan {
+        let pdfs = selected.filter { !$0.isDirectory && $0.url.pathExtension.lowercased() == "pdf" }.map(\.url)
+        guard let first = pdfs.first else {
+            return fail(query, "Select a PDF file to split.")
+        }
+        let targetFolder = folder ?? first.deletingLastPathComponent()
+        return CommandPlan(
+            query: query,
+            summary: "Split \(first.lastPathComponent) into individual pages",
+            steps: [.splitPDF(source: first, destFolder: targetFolder)],
+            creates: [],
+            trashes: [],
+            reveal: [],
+            autoRun: false,
+            workingDirectory: targetFolder
+        )
+    }
+
+    private static func planOCR(
+        query: String,
+        selected: [SelectedItem],
+        folder: URL?,
+        exists: (URL) -> Bool
+    ) -> CommandPlan {
+        let files = selected.filter { !$0.isDirectory }.map(\.url).filter { url in
+            let ext = url.pathExtension.lowercased()
+            return ["png", "jpg", "jpeg", "heic", "webp", "gif", "pdf", "tiff", "bmp"].contains(ext)
+        }
+        guard !files.isEmpty else {
+            return fail(query, "Select an image or PDF file to extract text.")
+        }
+        let targetFolder = folder ?? files[0].deletingLastPathComponent()
+        let destTxt: URL
+        if files.count == 1 {
+            let baseName = files[0].deletingPathExtension().lastPathComponent
+            destTxt = UniqueURL.next(in: targetFolder, name: "\(baseName)_ocr.txt", exists: exists)
+        } else {
+            destTxt = UniqueURL.next(in: targetFolder, name: "extracted_text.txt", exists: exists)
+        }
+        return CommandPlan(
+            query: query,
+            summary: "Extract text (OCR) from \(files.count) file(s)",
+            steps: [.ocr(sources: files, destTxt: destTxt, copyToPasteboard: true)],
+            creates: [destTxt],
+            trashes: [],
+            reveal: [destTxt],
+            autoRun: true,
+            workingDirectory: targetFolder
+        )
+    }
+
+    private static func renamePlan(
+        query: String,
+        selected: [SelectedItem],
+        exists: (URL) -> Bool,
+        transform: (Int, URL) -> String?
+    ) -> CommandPlan {
+        let files = selected.filter { !$0.isDirectory }.map(\.url)
+        guard !files.isEmpty else {
+            return fail(query, "Select files to rename.")
+        }
+        var steps: [PlanStep] = []
+        var reveals: [URL] = []
+        for (index, file) in files.enumerated() {
+            guard let newName = transform(index, file), !newName.isEmpty else { continue }
+            if newName == file.lastPathComponent { continue }
+            let parent = file.deletingLastPathComponent()
+            let dest = UniqueURL.next(in: parent, name: newName, exists: exists)
+            steps.append(.move(from: file, to: dest))
+            reveals.append(dest)
+        }
+        guard !steps.isEmpty else {
+            return fail(query, "No files needed renaming.")
+        }
+        return CommandPlan(
+            query: query,
+            summary: "Rename \(steps.count) file(s)",
+            steps: steps,
+            creates: [],
+            trashes: [],
+            reveal: reveals,
+            autoRun: false
+        )
+    }
+
+    private static func planRenameNumbered(
+        query: String,
+        selected: [SelectedItem],
+        exists: (URL) -> Bool
+    ) -> CommandPlan {
+        let count = selected.filter { !$0.isDirectory }.count
+        let digits = max(2, String(count).count)
+        return renamePlan(query: query, selected: selected, exists: exists) { index, file in
+            let numStr = String(format: "%0\(digits)d", index + 1)
+            return "\(numStr)_\(file.lastPathComponent)"
+        }
+    }
+
+    private static func planRenameDatePrefix(
+        query: String,
+        selected: [SelectedItem],
+        exists: (URL) -> Bool
+    ) -> CommandPlan {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        let dateStr = formatter.string(from: Date())
+        return renamePlan(query: query, selected: selected, exists: exists) { _, file in
+            "\(dateStr)_\(file.lastPathComponent)"
+        }
+    }
+
+    private static func planRenameCase(
+        query: String,
+        selected: [SelectedItem],
+        lowercase: Bool,
+        exists: (URL) -> Bool
+    ) -> CommandPlan {
+        return renamePlan(query: query, selected: selected, exists: exists) { _, file in
+            let ext = file.pathExtension
+            let base = file.deletingPathExtension().lastPathComponent
+            let newBase = lowercase ? base.lowercased() : base.uppercased()
+            let newExt = lowercase ? ext.lowercased() : ext.uppercased()
+            return ext.isEmpty ? newBase : "\(newBase).\(newExt)"
+        }
+    }
+
+    private static func planRenamePrefix(
+        query: String,
+        selected: [SelectedItem],
+        prefix: String,
+        exists: (URL) -> Bool
+    ) -> CommandPlan {
+        return renamePlan(query: query, selected: selected, exists: exists) { _, file in
+            "\(prefix)\(file.lastPathComponent)"
+        }
+    }
+
+    private static func planRenameSuffix(
+        query: String,
+        selected: [SelectedItem],
+        suffix: String,
+        exists: (URL) -> Bool
+    ) -> CommandPlan {
+        return renamePlan(query: query, selected: selected, exists: exists) { _, file in
+            let ext = file.pathExtension
+            let base = file.deletingPathExtension().lastPathComponent
+            return ext.isEmpty ? "\(base)\(suffix)" : "\(base)\(suffix).\(ext)"
+        }
+    }
+
+    private static func planRenameReplace(
+        query: String,
+        selected: [SelectedItem],
+        target: String,
+        replacement: String,
+        exists: (URL) -> Bool
+    ) -> CommandPlan {
+        return renamePlan(query: query, selected: selected, exists: exists) { _, file in
+            let name = file.lastPathComponent
+            if name.contains(target) {
+                return name.replacingOccurrences(of: target, with: replacement)
+            }
+            return nil
+        }
     }
 
     private enum MediaGroup {

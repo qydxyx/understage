@@ -40,6 +40,30 @@ final class InstantParserTests: XCTestCase {
         XCTAssertEqual(InstantParser.parse("选中最后一个 png"), .selectLast(ext: "png"))
     }
 
+    func testPDFAndOCRAndRenameParsing() {
+        XCTAssertEqual(InstantParser.parse("merge pdf"), .mergePDF)
+        XCTAssertEqual(InstantParser.parse("合并 pdf"), .mergePDF)
+        XCTAssertEqual(InstantParser.parse("合并为pdf"), .mergePDF)
+        XCTAssertEqual(InstantParser.parse("split pdf"), .splitPDF)
+        XCTAssertEqual(InstantParser.parse("拆分 pdf"), .splitPDF)
+        XCTAssertEqual(InstantParser.parse("ocr"), .ocr)
+        XCTAssertEqual(InstantParser.parse("提取文字"), .ocr)
+        XCTAssertEqual(InstantParser.parse("1 2 3"), .renameNumbered)
+        XCTAssertEqual(InstantParser.parse("序号"), .renameNumbered)
+        XCTAssertEqual(InstantParser.parse("加日期"), .renameDatePrefix)
+        XCTAssertEqual(InstantParser.parse("date prefix"), .renameDatePrefix)
+        XCTAssertEqual(InstantParser.parse("转小写"), .renameCase(lowercase: true))
+        XCTAssertEqual(InstantParser.parse("lowercase"), .renameCase(lowercase: true))
+        XCTAssertEqual(InstantParser.parse("转大写"), .renameCase(lowercase: false))
+        XCTAssertEqual(InstantParser.parse("uppercase"), .renameCase(lowercase: false))
+        XCTAssertEqual(InstantParser.parse("prefix v1_"), .renamePrefix("v1_"))
+        XCTAssertEqual(InstantParser.parse("加前缀 draft_"), .renamePrefix("draft_"))
+        XCTAssertEqual(InstantParser.parse("suffix _backup"), .renameSuffix("_backup"))
+        XCTAssertEqual(InstantParser.parse("加后缀 _old"), .renameSuffix("_old"))
+        XCTAssertEqual(InstantParser.parse("replace draft with final"), .renameReplace(target: "draft", replacement: "final"))
+        XCTAssertEqual(InstantParser.parse("把 img 替换为 photo"), .renameReplace(target: "img", replacement: "photo"))
+    }
+
     func testUnknownIsNil() {
         XCTAssertNil(InstantParser.parse("organize these by date"))
         XCTAssertNil(InstantParser.parse(""))
@@ -141,5 +165,114 @@ final class CommandPlannerTests: XCTestCase {
             tools: tools
         )
         XCTAssertEqual(plan.error, "No convertible files in the selection.")
+    }
+
+    func testPDFMergePlanner() {
+        let selected = [item("/tmp/a.pdf"), item("/tmp/b.pdf")]
+        let plan = CommandPlanner.plan(
+            action: .mergePDF,
+            query: "merge pdf",
+            selected: selected,
+            folder: URL(fileURLWithPath: "/tmp"),
+            tools: tools
+        )
+        XCTAssertNil(plan.error)
+        XCTAssertEqual(plan.creates.map(\.lastPathComponent), ["merged.pdf"])
+        guard case .mergePDF(let sources, let dest) = plan.steps.first else {
+            return XCTFail("expected mergePDF step")
+        }
+        XCTAssertEqual(sources.count, 2)
+        XCTAssertEqual(dest.lastPathComponent, "merged.pdf")
+    }
+
+    func testPDFSplitPlanner() {
+        let selected = [item("/tmp/doc.pdf")]
+        let plan = CommandPlanner.plan(
+            action: .splitPDF,
+            query: "split pdf",
+            selected: selected,
+            folder: URL(fileURLWithPath: "/tmp"),
+            tools: tools
+        )
+        XCTAssertNil(plan.error)
+        guard case .splitPDF(let source, _) = plan.steps.first else {
+            return XCTFail("expected splitPDF step")
+        }
+        XCTAssertEqual(source.lastPathComponent, "doc.pdf")
+    }
+
+    func testOCRPlanner() {
+        let selected = [item("/tmp/scan.png")]
+        let plan = CommandPlanner.plan(
+            action: .ocr,
+            query: "ocr",
+            selected: selected,
+            folder: URL(fileURLWithPath: "/tmp"),
+            tools: tools
+        )
+        XCTAssertNil(plan.error)
+        XCTAssertTrue(plan.autoRun)
+        XCTAssertEqual(plan.creates.map(\.lastPathComponent), ["scan_ocr.txt"])
+        guard case .ocr(let sources, let dest, true) = plan.steps.first else {
+            return XCTFail("expected ocr step")
+        }
+        XCTAssertEqual(sources.count, 1)
+        XCTAssertEqual(dest?.lastPathComponent, "scan_ocr.txt")
+    }
+
+    func testBatchRenamePlanner() {
+        let selected = [item("/tmp/apple.jpg"), item("/tmp/banana.jpg")]
+
+        let planNumbered = CommandPlanner.plan(
+            action: .renameNumbered,
+            query: "1 2 3",
+            selected: selected,
+            folder: URL(fileURLWithPath: "/tmp"),
+            tools: tools
+        )
+        XCTAssertEqual(planNumbered.steps.count, 2)
+        guard case .move(_, let to1) = planNumbered.steps[0],
+              case .move(_, let to2) = planNumbered.steps[1] else {
+            return XCTFail("expected move steps")
+        }
+        XCTAssertEqual(to1.lastPathComponent, "01_apple.jpg")
+        XCTAssertEqual(to2.lastPathComponent, "02_banana.jpg")
+
+        let planPrefix = CommandPlanner.plan(
+            action: .renamePrefix("fruit_"),
+            query: "prefix fruit_",
+            selected: selected,
+            folder: URL(fileURLWithPath: "/tmp"),
+            tools: tools
+        )
+        guard case .move(_, let toPrefix) = planPrefix.steps.first else {
+            return XCTFail("expected move step")
+        }
+        XCTAssertEqual(toPrefix.lastPathComponent, "fruit_apple.jpg")
+
+        let planSuffix = CommandPlanner.plan(
+            action: .renameSuffix("_raw"),
+            query: "suffix _raw",
+            selected: selected,
+            folder: URL(fileURLWithPath: "/tmp"),
+            tools: tools
+        )
+        guard case .move(_, let toSuffix) = planSuffix.steps.first else {
+            return XCTFail("expected move step")
+        }
+        XCTAssertEqual(toSuffix.lastPathComponent, "apple_raw.jpg")
+
+        let planReplace = CommandPlanner.plan(
+            action: .renameReplace(target: "apple", replacement: "orange"),
+            query: "replace apple with orange",
+            selected: selected,
+            folder: URL(fileURLWithPath: "/tmp"),
+            tools: tools
+        )
+        XCTAssertEqual(planReplace.steps.count, 1)
+        guard case .move(_, let toReplace) = planReplace.steps.first else {
+            return XCTFail("expected move step")
+        }
+        XCTAssertEqual(toReplace.lastPathComponent, "orange.jpg")
     }
 }

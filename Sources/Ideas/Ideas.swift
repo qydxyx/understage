@@ -21,6 +21,7 @@ enum Ideas {
             ideas.append(contentsOf: [
                 Idea(title: "JPEG", query: "jpg"),
                 Idea(title: "PNG", query: "png"),
+                Idea(title: "OCR", query: "ocr"),
                 Idea(title: "Zip", query: "zip"),
                 Idea(title: "Resolution", query: "resolution"),
             ])
@@ -39,13 +40,24 @@ enum Ideas {
             ideas.append(Idea(title: "Unzip", query: "unzip"))
         }
         if hasPDF {
-            ideas.append(Idea(title: "Select all PDFs", query: "select all pdf"))
+            ideas.append(contentsOf: [
+                Idea(title: "Split PDF", query: "split pdf"),
+                Idea(title: "OCR", query: "ocr"),
+                Idea(title: "Select all PDFs", query: "select all pdf"),
+            ])
+        }
+        if selected.count > 1 && (hasPDF || hasImages) {
+            ideas.append(Idea(title: "Merge to PDF", query: "merge pdf"))
         }
         if hasText {
             ideas.append(Idea(title: "Word count", query: "word count"))
         }
         if selected.count > 1 {
-            ideas.append(Idea(title: "Zip selection", query: "zip"))
+            ideas.append(contentsOf: [
+                Idea(title: "Number 1 2 3", query: "1 2 3"),
+                Idea(title: "Date prefix", query: "date prefix"),
+                Idea(title: "Zip selection", query: "zip"),
+            ])
         }
         if folder != nil {
             ideas.append(contentsOf: [

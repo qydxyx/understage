@@ -64,6 +64,23 @@ enum Predictor {
                 if FileManager.default.fileExists(atPath: to.path) {
                     overwrites.append(to)
                 }
+            case .mergePDF(_, let dest):
+                risk = escalate(risk, .create)
+                creates.append(dest)
+                if FileManager.default.fileExists(atPath: dest.path) {
+                    overwrites.append(dest)
+                    risk = escalate(risk, .mutate)
+                }
+            case .splitPDF(_, let destFolder):
+                risk = escalate(risk, .create)
+                if let hit = forbiddenPath(destFolder) {
+                    return deny("Refuses to touch \(hit)")
+                }
+            case .ocr(_, let destTxt, _):
+                if let dest = destTxt {
+                    risk = escalate(risk, .create)
+                    creates.append(dest)
+                }
             case .process(let executable, let arguments):
                 let joined = ([executable] + arguments).joined(separator: " ")
                 if let why = denyReason(joined) {
