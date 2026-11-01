@@ -26,6 +26,8 @@ enum FileInfo {
             return "\(name): \(url.pathExtension.uppercased().nilIfEmpty ?? "folder/unknown")"
         case .wordCount:
             return "\(name): \(wordCount(url))"
+        case .charCount:
+            return "\(name): \(characterCount(url))"
         case .lineCount:
             return "\(name): \(lineCount(url))"
         case .resolution:
@@ -53,6 +55,67 @@ enum FileInfo {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return "not text" }
         let words = text.split { $0.isWhitespace || $0.isNewline }
         return "\(words.count) words"
+    }
+
+    private static func characterCount(_ url: URL) -> String {
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return "not text" }
+        let count = text.filter { !$0.isWhitespace }.count
+        return "\(count) chars"
+    }
+
+    static func reportLoaded(field: InfoField, items: [SelectedItem], folder: URL?) async -> String {
+        switch field {
+        case .duration, .codec, .fps:
+            return await mediaReport(field, items: items, folder: folder)
+        default:
+            return report(field: field, items: items, folder: folder)
+        }
+    }
+
+    private static func mediaReport(_ field: InfoField, items: [SelectedItem], folder: URL?) async -> String {
+        let urls: [URL]
+        if items.isEmpty, let folder {
+            urls = [folder]
+        } else {
+            urls = items.map(\.url)
+        }
+        guard !urls.isEmpty else { return "Nothing selected." }
+        var lines: [String] = []
+        for url in urls {
+            lines.append(await mediaLine(field, url))
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private static func mediaLine(_ field: InfoField, _ url: URL) async -> String {
+        let name = url.lastPathComponent
+        let asset = AVURLAsset(url: url)
+        switch field {
+        case .duration:
+            let duration = (try? await asset.load(.duration)) ?? .indefinite
+            let seconds = CMTimeGetSeconds(duration)
+            guard seconds.isFinite, seconds > 0 else { return "\(name): unknown" }
+            if seconds < 60 { return "\(name): \(String(format: "%.1fs", seconds))" }
+            let m = Int(seconds) / 60
+            let s = Int(seconds) % 60
+            return "\(name): \(m)m \(s)s"
+        case .codec:
+            let tracks = (try? await asset.load(.tracks)) ?? []
+            var names: [String] = []
+            for track in tracks {
+                let descriptions = (try? await track.load(.formatDescriptions)) ?? []
+                guard let desc = descriptions.first else { continue }
+                names.append(fourCC(CMFormatDescriptionGetMediaSubType(desc)))
+            }
+            return names.isEmpty ? "\(name): unknown" : "\(name): \(names.joined(separator: ", "))"
+        case .fps:
+            let tracks = (try? await asset.loadTracks(withMediaType: .video)) ?? []
+            guard let track = tracks.first else { return "\(name): n/a" }
+            let rate = (try? await track.load(.nominalFrameRate)) ?? 0
+            return rate > 0 ? "\(name): \(String(format: "%.2f fps", rate))" : "\(name): unknown"
+        default:
+            return "\(name): unknown"
+        }
     }
 
     private static func lineCount(_ url: URL) -> String {

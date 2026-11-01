@@ -51,4 +51,22 @@ final class KeyboardHotKeyTests: XCTestCase {
         model.handleEscape()
         XCTAssertEqual(model.phase, .idle)
     }
+
+    func testSubmitWhileRunningDoesNotReplaceTheCommand() {
+        let plan = CommandPlan(
+            query: "sleep",
+            summary: "sleep",
+            steps: [],
+            creates: [],
+            trashes: [],
+            reveal: [],
+            autoRun: false
+        )
+        let model = StageBarModel()
+        model.phase = .running(plan)
+        model.query = "jpg"
+        model.submit()
+        XCTAssertEqual(model.phase, .running(plan))
+        XCTAssertEqual(model.query, "jpg")
+    }
 }

@@ -35,6 +35,8 @@ final class VendorSettings: ObservableObject {
         }
     }
 
+    @Published private(set) var hotKeyRegistered = true
+
     @Published var ollamaReachable = false
     @Published var lmStudioReachable = false
 
@@ -79,6 +81,7 @@ final class VendorSettings: ObservableObject {
         GlobalHotKeyManager.shared.register(option: hotKey) {
             DockingController.shared.toggleOrFocusFrontmostBar()
         }
+        hotKeyRegistered = GlobalHotKeyManager.shared.registered
     }
 
     var resolvedBaseURL: String {

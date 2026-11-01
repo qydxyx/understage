@@ -41,7 +41,7 @@ enum Predictor {
 
         for step in plan.steps {
             switch step {
-            case .copyPasteboard, .select, .openTerminal:
+            case .copyPasteboard, .select, .openTerminal, .fileInfo:
                 continue
             case .trash(let url):
                 risk = escalate(risk, .mutate)
@@ -94,6 +94,10 @@ enum Predictor {
                 if networkExecutable(name) {
                     risk = escalate(risk, .network)
                     reasons.append("Network tool \(name)")
+                }
+                if shellInterpreter(name) {
+                    risk = escalate(risk, .unknown)
+                    reasons.append("Shell or script interpreter \(name)")
                 }
                 if mutatingExecutable(name) || arguments.contains(where: { $0 == "-rf" || $0 == "--delete" }) {
                     risk = escalate(risk, .mutate)
@@ -183,6 +187,10 @@ enum Predictor {
 
     private static func networkExecutable(_ name: String) -> Bool {
         ["curl", "wget", "scp", "sftp", "ssh", "rclone", "nc", "ncat", "ftp"].contains(name)
+    }
+
+    private static func shellInterpreter(_ name: String) -> Bool {
+        ["bash", "sh", "zsh", "python", "python3", "perl", "ruby", "osascript"].contains(name)
     }
 
     private static func mutatingExecutable(_ name: String) -> Bool {

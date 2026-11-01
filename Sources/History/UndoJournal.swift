@@ -22,7 +22,7 @@ enum UndoAction: Equatable, Codable, Sendable {
             var resulting: NSURL?
             try fm.trashItem(at: URL(fileURLWithPath: path), resultingItemURL: &resulting)
         case .moveBack(let from, let to):
-            try fm.moveItem(at: URL(fileURLWithPath: from), to: URL(fileURLWithPath: to))
+            try FileMoves.move(URL(fileURLWithPath: from), to: URL(fileURLWithPath: to))
         }
     }
 }
@@ -72,20 +72,33 @@ final class UndoJournal: ObservableObject {
         guard let batch = batches.first else {
             return String(localized: "Nothing to undo")
         }
+        let outcome = Self.apply(batch.actions)
+        if outcome.remaining.isEmpty {
+            batches.removeFirst()
+        } else {
+            batches[0].actions = outcome.remaining
+        }
+        save()
+        if outcome.errors.isEmpty {
+            return String(localized: "Undid: \(batch.summary)")
+        }
+        return String(localized: "Undo partially failed: \(outcome.errors.joined(separator: "; "))")
+    }
+
+    /// Applies actions from last to first. Actions that throw stay in `remaining`.
+    nonisolated static func apply(_ actions: [UndoAction]) -> (errors: [String], remaining: [UndoAction]) {
         var errors: [String] = []
-        for action in batch.actions.reversed() {
+        var failed: [UndoAction] = []
+        for action in actions.reversed() {
             do {
                 try action.apply()
             } catch {
                 errors.append(error.localizedDescription)
+                failed.append(action)
             }
         }
-        batches.removeFirst()
-        save()
-        if errors.isEmpty {
-            return String(localized: "Undid: \(batch.summary)")
-        }
-        return String(localized: "Undo partially failed: \(errors.joined(separator: "; "))")
+        failed.reverse()
+        return (errors, failed)
     }
 
     private func save() {

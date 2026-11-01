@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MenuBarView: View {
     @ObservedObject var appModel: AppModel
+    @ObservedObject private var settings = VendorSettings.shared
     @ObservedObject private var history = TaskHistory.shared
     @ObservedObject private var jobs = JobQueue.shared
     @ObservedObject private var undo = UndoJournal.shared
@@ -26,6 +27,11 @@ struct MenuBarView: View {
                 SettingsPresenter.shared.open()
             }
             .keyboardShortcut(",", modifiers: .command)
+            if !settings.hotKeyRegistered, settings.hotKey != .disabled {
+                Text("Shortcut is already used by another app.")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
             if jobs.runningCount > 0 {
                 Text("\(jobs.runningCount) running")
                     .font(.caption)
@@ -39,7 +45,9 @@ struct MenuBarView: View {
             if !rules.favorites.isEmpty {
                 Menu("Favorites") {
                     ForEach(rules.favorites.prefix(12)) { favorite in
-                        Text(favorite.query)
+                        Button(favorite.query) {
+                            DockingController.shared.prefillFrontBar(favorite.query, submit: true)
+                        }
                     }
                 }
             }
@@ -47,7 +55,9 @@ struct MenuBarView: View {
                 Divider()
                 Menu("History") {
                     ForEach(history.entries.prefix(12)) { entry in
-                        Text("\(entry.ok ? "✓" : "✕") \(entry.query)")
+                        Button("\(entry.ok ? "✓" : "✕") \(entry.query)") {
+                            DockingController.shared.prefillFrontBar(entry.query, submit: false)
+                        }
                     }
                 }
             }

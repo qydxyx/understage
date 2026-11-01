@@ -15,6 +15,7 @@ struct AgentCall: Equatable, Sendable {
     var from: String?
     var to: String?
     var question: String?
+    var options: [String] = []
 }
 
 enum AgentParser {
@@ -39,7 +40,10 @@ enum AgentParser {
             creates: creates,
             from: json["from"] as? String,
             to: json["to"] as? String,
-            question: json["question"] as? String
+            question: json["question"] as? String,
+            options: (json["options"] as? [String] ?? [])
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
         )
     }
 
@@ -61,14 +65,45 @@ enum AgentParser {
         {"tool":"move","from":"/abs/a","to":"/abs/b","summary":"..."}
         {"tool":"trash","path":"/abs/file"}
         {"tool":"reveal","paths":["/abs/file"]}
-        {"tool":"ask_user","question":"..."}
+        {"tool":"ask_user","question":"...","options":["choice A","choice B"]}
         {"tool":"done","summary":"..."}
         Rules:
         - Stay inside the Finder folder and selected paths.
         - Inspect or list before bulk organize.
+        - When a choice is required, call ask_user with 2 to 4 short options.
+        - Move or run before done. Never say files were organized if you only listed them.
         - Never sudo, never rm -rf, never overwrite; unique names.
         - Prefer sips/ffmpeg/ditto/zip/textutil.
         \(extras)
         """
+    }
+}
+
+enum AgentFinish {
+    static func result(query: String, summary: String, mutated: Bool, filesLeft: Int = 0) -> (ok: Bool, text: String) {
+        let body = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        let chinese = query.contains(where: \.isCJK)
+        if asksForChange(query), filesLeft > 0 {
+            let note = chinese ? "还有 \(filesLeft) 个文件留在原处。" : "\(filesLeft) files are still in place."
+            return (false, body.isEmpty ? note : "\(note) \(body)")
+        }
+        if asksForChange(query), !mutated {
+            let note = chinese ? "没有改动任何文件。" : "No files were changed."
+            return (false, body.isEmpty ? note : "\(note) \(body)")
+        }
+        return (true, body.isEmpty ? summary : body)
+    }
+
+    static func asksForChange(_ query: String) -> Bool {
+        let lower = query.lowercased()
+        let words = ["sort", "move", "organiz", "rename", "archive", "整理", "分类", "分门", "归档", "移动", "重命名"]
+        return words.contains { lower.contains($0) }
+    }
+}
+
+private extension Character {
+    var isCJK: Bool {
+        guard let scalar = unicodeScalars.first else { return false }
+        return (0x4E00 ... 0x9FFF).contains(scalar.value)
     }
 }

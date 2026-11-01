@@ -18,6 +18,38 @@ final class AgentParserTests: XCTestCase {
     func testRejectsUnknownTool() {
         XCTAssertThrowsError(try AgentParser.parse(#"{"tool":"explode"}"#))
     }
+
+    func testAskUserKeepsOptions() throws {
+        let call = try AgentParser.parse(
+            #"{"tool":"ask_user","question":"How should these be grouped?","options":["By extension","By purpose"]}"#
+        )
+        XCTAssertEqual(call.tool, .askUser)
+        XCTAssertEqual(call.options, ["By extension", "By purpose"])
+    }
+
+    func testOrganizeWithoutChangesIsNotSuccess() {
+        let finished = AgentFinish.result(
+            query: "整理这些文件，分门别类到不同的文件夹",
+            summary: "已成功分类整理下载文件夹中的文件。",
+            mutated: false
+        )
+        XCTAssertFalse(finished.ok)
+        XCTAssertTrue(finished.text.contains("没有改动任何文件"))
+        let partial = AgentFinish.result(
+            query: "根据文件类型移动到不同的文件夹中",
+            summary: "已成功将文件移动到分类文件夹中。",
+            mutated: true,
+            filesLeft: 40
+        )
+        XCTAssertFalse(partial.ok)
+        XCTAssertTrue(partial.text.contains("40"))
+    }
+
+    func testJoinCollapsesDoubleSlash() throws {
+        let base = try XCTUnwrap(URL(string: "https://llm.example:444//v1"))
+        let url = join(base, "chat/completions")
+        XCTAssertEqual(url.absoluteString, "https://llm.example:444/v1/chat/completions")
+    }
 }
 
 final class SkillCatalogTests: XCTestCase {
@@ -110,5 +142,12 @@ final class UndoActionTests: XCTestCase {
         try UndoAction.moveBack(from: b.path, to: a.path).apply()
         XCTAssertTrue(FileManager.default.fileExists(atPath: a.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: b.path))
+    }
+
+    func testFailedUndoActionStaysInTheBatch() {
+        let missing = "/tmp/understage-missing-\(UUID().uuidString)"
+        let outcome = UndoJournal.apply([.trashCreated(missing)])
+        XCTAssertEqual(outcome.remaining.count, 1)
+        XCTAssertFalse(outcome.errors.isEmpty)
     }
 }

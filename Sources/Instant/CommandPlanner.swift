@@ -7,7 +7,7 @@ enum CommandPlanner {
         selected: [SelectedItem],
         folder: URL?,
         tools: Toolset,
-        exists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
+        exists: @escaping (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     ) -> CommandPlan {
         switch action {
         case .convert(let format):
@@ -19,6 +19,17 @@ enum CommandPlanner {
         case .stripAudio:
             return stripAudio(query: query, selected: selected, tools: tools, exists: exists)
         case .info(let field):
+            if field == .duration || field == .codec || field == .fps {
+                return CommandPlan(
+                    query: query,
+                    summary: "Read \(field.rawValue)",
+                    steps: [.fileInfo(field, items: selected, folder: folder)],
+                    creates: [],
+                    trashes: [],
+                    reveal: [],
+                    autoRun: true
+                )
+            }
             let text = FileInfo.report(field: field, items: selected, folder: folder)
             return CommandPlan(
                 query: query,
@@ -85,6 +96,8 @@ enum CommandPlanner {
             return planRenameSuffix(query: query, selected: selected, suffix: suffix, exists: exists)
         case .renameReplace(let target, let replacement):
             return planRenameReplace(query: query, selected: selected, target: target, replacement: replacement, exists: exists)
+        case .organizeByType:
+            return organizeByType(query: query, selected: selected, folder: folder, exists: exists)
         }
     }
 
@@ -93,10 +106,11 @@ enum CommandPlanner {
         query: String,
         selected: [SelectedItem],
         tools: Toolset,
-        exists: (URL) -> Bool
+        exists: @escaping (URL) -> Bool
     ) -> CommandPlan {
         let files = selected.filter { !$0.isDirectory }.map(\.url)
         guard !files.isEmpty else { return fail(query, "Select files to convert.") }
+        let reserved = PathReservation(base: exists)
         var steps: [PlanStep] = []
         var creates: [URL] = []
         var missing: String?
@@ -107,12 +121,13 @@ enum CommandPlanner {
                 source: source,
                 format: format,
                 tools: tools,
-                exists: exists
+                exists: { reserved.exists($0) }
             ) else { continue }
             if let tool = built.missing {
                 missing = tool
                 break
             }
+            reserved.take(built.output)
             steps.append(built.step)
             creates.append(built.output)
         }
@@ -135,7 +150,7 @@ enum CommandPlanner {
         source: URL,
         format: OutputFormat,
         tools: Toolset,
-        exists: (URL) -> Bool
+        exists: @escaping (URL) -> Bool
     ) -> (step: PlanStep, output: URL, missing: String?)? {
         let group = mediaGroup(source.pathExtension)
         let dest = UniqueURL.next(
@@ -233,7 +248,7 @@ enum CommandPlanner {
         query: String,
         selected: [SelectedItem],
         tools: Toolset,
-        exists: (URL) -> Bool
+        exists: @escaping (URL) -> Bool
     ) -> CommandPlan {
         guard let ffmpeg = tools.ffmpeg else { return missingTool(query, "ffmpeg") }
         let videos = selected.map(\.url).filter { mediaGroup($0.pathExtension) == .video }
@@ -273,7 +288,7 @@ enum CommandPlanner {
         query: String,
         selected: [SelectedItem],
         tools: Toolset,
-        exists: (URL) -> Bool
+        exists: @escaping (URL) -> Bool
     ) -> CommandPlan {
         guard let ffmpeg = tools.ffmpeg else { return missingTool(query, "ffmpeg") }
         let sources = selected.map(\.url).filter {
@@ -312,7 +327,7 @@ enum CommandPlanner {
         query: String,
         selected: [SelectedItem],
         tools: Toolset,
-        exists: (URL) -> Bool
+        exists: @escaping (URL) -> Bool
     ) -> CommandPlan {
         guard let ffmpeg = tools.ffmpeg else { return missingTool(query, "ffmpeg") }
         let videos = selected.map(\.url).filter { mediaGroup($0.pathExtension) == .video }
@@ -349,11 +364,15 @@ enum CommandPlanner {
         selected: [SelectedItem],
         folder: URL?,
         tools: Toolset,
-        exists: (URL) -> Bool
+        exists: @escaping (URL) -> Bool
     ) -> CommandPlan {
         guard let zip = tools.zip else { return missingTool(query, "zip") }
         let items = selected.map(\.url)
         guard !items.isEmpty else { return fail(query, "Select files to zip.") }
+        let parents = Set(items.map { $0.deletingLastPathComponent().standardizedFileURL.path })
+        guard parents.count == 1 else {
+            return fail(query, "Select files from the same folder to zip.")
+        }
         let directory = items[0].deletingLastPathComponent()
         let base = items.count == 1
             ? items[0].deletingPathExtension().lastPathComponent
@@ -376,19 +395,21 @@ enum CommandPlanner {
         query: String,
         selected: [SelectedItem],
         tools: Toolset,
-        exists: (URL) -> Bool
+        exists: @escaping (URL) -> Bool
     ) -> CommandPlan {
         guard let ditto = tools.ditto else { return missingTool(query, "ditto") }
         let zips = selected.map(\.url).filter { $0.pathExtension.lowercased() == "zip" }
         guard !zips.isEmpty else { return fail(query, "Select a zip file.") }
+        let reserved = PathReservation(base: exists)
         var steps: [PlanStep] = []
         var creates: [URL] = []
         for source in zips {
             let dest = UniqueURL.next(
                 in: source.deletingLastPathComponent(),
                 name: source.deletingPathExtension().lastPathComponent,
-                exists: exists
+                exists: { reserved.exists($0) }
             )
+            reserved.take(dest)
             steps.append(
                 .process(executable: ditto, arguments: ["-x", "-k", source.path, dest.path])
             )
@@ -408,17 +429,19 @@ enum CommandPlanner {
     private static func duplicate(
         query: String,
         selected: [SelectedItem],
-        exists: (URL) -> Bool
+        exists: @escaping (URL) -> Bool
     ) -> CommandPlan {
         guard !selected.isEmpty else { return fail(query, "Select files to duplicate.") }
+        let reserved = PathReservation(base: exists)
         var steps: [PlanStep] = []
         var creates: [URL] = []
         for item in selected {
             let dest = UniqueURL.next(
                 in: item.url.deletingLastPathComponent(),
                 name: item.url.lastPathComponent,
-                exists: exists
+                exists: { reserved.exists($0) }
             )
+            reserved.take(dest)
             steps.append(.copyFile(from: item.url, to: dest))
             creates.append(dest)
         }
@@ -517,7 +540,7 @@ enum CommandPlanner {
         query: String,
         selected: [SelectedItem],
         folder: URL?,
-        exists: (URL) -> Bool
+        exists: @escaping (URL) -> Bool
     ) -> CommandPlan {
         let files = selected.filter { !$0.isDirectory }.map(\.url)
         let supported = files.filter { url in
@@ -545,7 +568,7 @@ enum CommandPlanner {
         query: String,
         selected: [SelectedItem],
         folder: URL?,
-        exists: (URL) -> Bool
+        exists: @escaping (URL) -> Bool
     ) -> CommandPlan {
         let pdfs = selected.filter { !$0.isDirectory && $0.url.pathExtension.lowercased() == "pdf" }.map(\.url)
         guard let first = pdfs.first else {
@@ -568,7 +591,7 @@ enum CommandPlanner {
         query: String,
         selected: [SelectedItem],
         folder: URL?,
-        exists: (URL) -> Bool
+        exists: @escaping (URL) -> Bool
     ) -> CommandPlan {
         let files = selected.filter { !$0.isDirectory }.map(\.url).filter { url in
             let ext = url.pathExtension.lowercased()
@@ -600,20 +623,22 @@ enum CommandPlanner {
     private static func renamePlan(
         query: String,
         selected: [SelectedItem],
-        exists: (URL) -> Bool,
+        exists: @escaping (URL) -> Bool,
         transform: (Int, URL) -> String?
     ) -> CommandPlan {
         let files = selected.filter { !$0.isDirectory }.map(\.url)
         guard !files.isEmpty else {
             return fail(query, "Select files to rename.")
         }
+        let reserved = PathReservation(base: exists)
         var steps: [PlanStep] = []
         var reveals: [URL] = []
         for (index, file) in files.enumerated() {
             guard let newName = transform(index, file), !newName.isEmpty else { continue }
             if newName == file.lastPathComponent { continue }
             let parent = file.deletingLastPathComponent()
-            let dest = UniqueURL.next(in: parent, name: newName, exists: exists)
+            let dest = UniqueURL.next(in: parent, name: newName, exists: { reserved.exists($0) })
+            reserved.take(dest)
             steps.append(.move(from: file, to: dest))
             reveals.append(dest)
         }
@@ -634,7 +659,7 @@ enum CommandPlanner {
     private static func planRenameNumbered(
         query: String,
         selected: [SelectedItem],
-        exists: (URL) -> Bool
+        exists: @escaping (URL) -> Bool
     ) -> CommandPlan {
         let count = selected.filter { !$0.isDirectory }.count
         let digits = max(2, String(count).count)
@@ -647,7 +672,7 @@ enum CommandPlanner {
     private static func planRenameDatePrefix(
         query: String,
         selected: [SelectedItem],
-        exists: (URL) -> Bool
+        exists: @escaping (URL) -> Bool
     ) -> CommandPlan {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
@@ -661,7 +686,7 @@ enum CommandPlanner {
         query: String,
         selected: [SelectedItem],
         lowercase: Bool,
-        exists: (URL) -> Bool
+        exists: @escaping (URL) -> Bool
     ) -> CommandPlan {
         return renamePlan(query: query, selected: selected, exists: exists) { _, file in
             let ext = file.pathExtension
@@ -676,7 +701,7 @@ enum CommandPlanner {
         query: String,
         selected: [SelectedItem],
         prefix: String,
-        exists: (URL) -> Bool
+        exists: @escaping (URL) -> Bool
     ) -> CommandPlan {
         return renamePlan(query: query, selected: selected, exists: exists) { _, file in
             "\(prefix)\(file.lastPathComponent)"
@@ -687,7 +712,7 @@ enum CommandPlanner {
         query: String,
         selected: [SelectedItem],
         suffix: String,
-        exists: (URL) -> Bool
+        exists: @escaping (URL) -> Bool
     ) -> CommandPlan {
         return renamePlan(query: query, selected: selected, exists: exists) { _, file in
             let ext = file.pathExtension
@@ -701,7 +726,7 @@ enum CommandPlanner {
         selected: [SelectedItem],
         target: String,
         replacement: String,
-        exists: (URL) -> Bool
+        exists: @escaping (URL) -> Bool
     ) -> CommandPlan {
         return renamePlan(query: query, selected: selected, exists: exists) { _, file in
             let name = file.lastPathComponent
@@ -709,6 +734,74 @@ enum CommandPlanner {
                 return name.replacingOccurrences(of: target, with: replacement)
             }
             return nil
+        }
+    }
+
+    private static func organizeByType(
+        query: String,
+        selected: [SelectedItem],
+        folder: URL?,
+        exists: @escaping (URL) -> Bool
+    ) -> CommandPlan {
+        let picked = selected.filter { !$0.isDirectory }.map(\.url)
+        let files: [URL]
+        if picked.count >= 2 {
+            files = picked
+        } else if let folder {
+            files = looseFiles(in: folder)
+        } else {
+            files = picked
+        }
+        let sources = files.filter { !$0.lastPathComponent.hasPrefix("~$") }
+        guard !sources.isEmpty else { return fail(query, "No files to organize.") }
+        let reserved = PathReservation(base: exists)
+        var steps: [PlanStep] = []
+        var groups = Set<String>()
+        for file in sources {
+            let group = file.pathExtension.isEmpty ? "Other" : file.pathExtension.uppercased()
+            groups.insert(group)
+            let directory = file.deletingLastPathComponent().appendingPathComponent(group, isDirectory: true)
+            let dest = UniqueURL.next(in: directory, name: file.lastPathComponent, exists: { reserved.exists($0) })
+            reserved.take(dest)
+            steps.append(.move(from: file, to: dest))
+        }
+        return CommandPlan(
+            query: query,
+            summary: "Move \(steps.count) files into \(groups.count) folders by type",
+            steps: steps,
+            creates: [],
+            trashes: [],
+            reveal: [],
+            autoRun: false
+        )
+    }
+
+    private static func looseFiles(in folder: URL) -> [URL] {
+        let urls = (try? FileManager.default.contentsOfDirectory(
+            at: folder,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        )) ?? []
+        return urls.filter { url in
+            let dir = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+            return !dir
+        }.sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+    }
+
+    private final class PathReservation {
+        private var taken = Set<String>()
+        private let base: (URL) -> Bool
+
+        init(base: @escaping (URL) -> Bool) {
+            self.base = base
+        }
+
+        func exists(_ url: URL) -> Bool {
+            taken.contains(url.path) || base(url)
+        }
+
+        func take(_ url: URL) {
+            taken.insert(url.path)
         }
     }
 

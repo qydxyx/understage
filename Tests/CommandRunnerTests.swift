@@ -152,6 +152,147 @@ final class CommandRunnerTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: newB.path))
     }
 
+    func testCancelIsNotSuccess() async {
+        let plan = CommandPlan(
+            query: "sleep",
+            summary: "sleep",
+            steps: [.process(executable: "/bin/sleep", arguments: ["30"])],
+            creates: [],
+            trashes: [],
+            reveal: [],
+            autoRun: false
+        )
+        let session = CommandRunner.Session()
+        let task = Task { await CommandRunner.runWithUndo(plan, session: session) }
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        session.cancel()
+        let report = await task.value
+        guard case .cancelled = report.outcome else {
+            return XCTFail("expected cancelled, got \(report.outcome)")
+        }
+    }
+
+    func testPartialFailureKeepsEarlierUndo() async throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("understage-partial-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let source = dir.appendingPathComponent("a.txt")
+        try "x".write(to: source, atomically: true, encoding: .utf8)
+        let dest = dir.appendingPathComponent("b.txt")
+        let plan = CommandPlan(
+            query: "copy",
+            summary: "copy",
+            steps: [
+                .copyFile(from: source, to: dest),
+                .process(executable: "/usr/bin/false", arguments: []),
+            ],
+            creates: [dest],
+            trashes: [],
+            reveal: [],
+            autoRun: false
+        )
+        let report = await CommandRunner.runWithUndo(plan, session: CommandRunner.Session())
+        guard case .failure = report.outcome else {
+            return XCTFail("expected failure, got \(report.outcome)")
+        }
+        XCTAssertTrue(report.undos.contains { action in
+            if case .trashCreated(let path) = action { return path == dest.path }
+            return false
+        })
+    }
+
+    func testCaseOnlyRename() async throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("understage-case-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let source = dir.appendingPathComponent("Photo.TXT")
+        try "x".write(to: source, atomically: true, encoding: .utf8)
+        let dest = dir.appendingPathComponent("photo.txt")
+        let plan = CommandPlan(
+            query: "lowercase",
+            summary: "lowercase",
+            steps: [.move(from: source, to: dest)],
+            creates: [],
+            trashes: [],
+            reveal: [dest],
+            autoRun: false
+        )
+        let report = await CommandRunner.runWithUndo(plan, session: CommandRunner.Session())
+        guard case .success = report.outcome else {
+            return XCTFail("expected success, got \(report.outcome)")
+        }
+        let names = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+        XCTAssertTrue(names.contains("photo.txt"))
+        XCTAssertFalse(names.contains("Photo.TXT"))
+    }
+
+    func testMoveCreatesMissingFolder() async throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("understage-mkdir-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let source = dir.appendingPathComponent("note.txt")
+        try "x".write(to: source, atomically: true, encoding: .utf8)
+        let dest = dir.appendingPathComponent("Docs").appendingPathComponent("note.txt")
+        let plan = CommandPlan(
+            query: "move",
+            summary: "move",
+            steps: [.move(from: source, to: dest)],
+            creates: [dest],
+            trashes: [],
+            reveal: [],
+            autoRun: false
+        )
+        let report = await CommandRunner.runWithUndo(plan, session: CommandRunner.Session())
+        guard case .success = report.outcome else {
+            return XCTFail("expected success, got \(report.outcome)")
+        }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dest.path))
+        let names = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+        XCTAssertFalse(names.contains("note.txt"))
+    }
+
+    func testOrganizeByTypeMovesEveryFile() async throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("understage-org-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        for name in ["one.pdf", "two.pdf", "note.docx", "clip.mp4", "readme"] {
+            try "x".write(to: dir.appendingPathComponent(name), atomically: true, encoding: .utf8)
+        }
+        try FileManager.default.createDirectory(at: dir.appendingPathComponent("Keep"), withIntermediateDirectories: true)
+        let query = "根据文件类型移动到不同的文件夹中"
+        let action = try XCTUnwrap(InstantParser.parse(query))
+        XCTAssertEqual(action, .organizeByType)
+        let plan = CommandPlanner.plan(
+            action: action,
+            query: query,
+            selected: [],
+            folder: dir,
+            tools: .system
+        )
+        XCTAssertEqual(plan.steps.count, 5)
+        XCTAssertFalse(plan.autoRun)
+        let report = await CommandRunner.runWithUndo(plan, session: CommandRunner.Session())
+        guard case .success = report.outcome else {
+            return XCTFail("expected success, got \(report.outcome)")
+        }
+        XCTAssertEqual(report.undos.count, 5)
+        let root = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+        XCTAssertFalse(root.contains("one.pdf"))
+        XCTAssertFalse(root.contains("note.docx"))
+        XCTAssertFalse(root.contains("clip.mp4"))
+        XCTAssertFalse(root.contains("readme"))
+        XCTAssertTrue(root.contains("Keep"))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("PDF/one.pdf").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("PDF/two.pdf").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("DOCX/note.docx").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("MP4/clip.mp4").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("Other/readme").path))
+    }
+
     /// 1×1 gray PNG.
     private static let png1x1 = Data(
         base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII="

@@ -25,7 +25,9 @@ enum PermissionGate {
     }
 
     static func promptFinderAutomation() {
-        _ = finderAutomationGranted(prompt: true)
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     private static func finderAutomationGranted(prompt: Bool) -> Bool {

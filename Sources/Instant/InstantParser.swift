@@ -21,7 +21,7 @@ enum OutputFormat: String, Equatable, Sendable {
 }
 
 enum InfoField: String, Equatable, Sendable {
-    case size, resolution, codec, fps, duration, wordCount, lineCount, path, fileType
+    case size, resolution, codec, fps, duration, wordCount, charCount, lineCount, path, fileType
 }
 
 enum InstantAction: Equatable, Sendable {
@@ -47,6 +47,7 @@ enum InstantAction: Equatable, Sendable {
     case renamePrefix(String)
     case renameSuffix(String)
     case renameReplace(target: String, replacement: String)
+    case organizeByType
 }
 
 enum InstantParser {
@@ -57,24 +58,26 @@ enum InstantParser {
 
         let compact = stripFiller(lower)
 
-        if compact.contains("1080") { return .scaleVideo(height: 1080) }
-        if compact.contains("720") { return .scaleVideo(height: 720) }
+        if organizeByTypePhrase(compact) { return .organizeByType }
+        if compact == "1080" || compact == "1080p" { return .scaleVideo(height: 1080) }
+        if compact == "720" || compact == "720p" { return .scaleVideo(height: 720) }
         if matches(compact, ["extract audio", "提取音频", "抽音频", "音频提取"]) {
             return .extractAudio
         }
         if matches(compact, ["strip audio", "remove audio", "去音频", "去掉音频", "无音频"]) {
             return .stripAudio
         }
-        if matches(compact, ["word count", "词数", "字数", "字数统计"]) { return .info(.wordCount) }
+        if matches(compact, ["字数", "字数统计", "character count"]) { return .info(.charCount) }
+        if matches(compact, ["word count", "词数"]) { return .info(.wordCount) }
         if matches(compact, ["lines of code", "line count", "行数", "多少行"]) { return .info(.lineCount) }
-        if matches(compact, ["file size", "size", "大小"]) { return .info(.size) }
+        if matches(compact, ["file size"]) || matchesExact(compact, ["size", "大小"]) { return .info(.size) }
         if matches(compact, ["resolution", "分辨率"]) { return .info(.resolution) }
-        if matches(compact, ["codec", "编码"]) { return .info(.codec) }
-        if matches(compact, ["fps", "帧率"]) { return .info(.fps) }
-        if matches(compact, ["duration", "时长", "长度"]) { return .info(.duration) }
+        if matches(compact, ["编码"]) || matchesExact(compact, ["codec"]) { return .info(.codec) }
+        if matches(compact, ["帧率"]) || matchesExact(compact, ["fps"]) { return .info(.fps) }
+        if matches(compact, ["时长", "长度"]) || matchesExact(compact, ["duration"]) { return .info(.duration) }
         if matches(compact, ["copy path", "复制路径"]) { return .copyPath }
-        if matches(compact, ["path", "路径"]) { return .info(.path) }
-        if matches(compact, ["type", "kind", "类型"]) { return .info(.fileType) }
+        if matchesExact(compact, ["path", "路径"]) { return .info(.path) }
+        if matchesExact(compact, ["type", "kind", "类型"]) { return .info(.fileType) }
         if matches(compact, ["open terminal", "terminal", "term", "打开终端", "终端"]) {
             return .openTerminal
         }
@@ -179,6 +182,19 @@ enum InstantParser {
 
     private static func matches(_ compact: String, _ aliases: [String]) -> Bool {
         aliases.contains { compact == $0 || compact.hasPrefix($0 + " ") || compact.hasSuffix(" " + $0) }
+    }
+
+    private static func organizeByTypePhrase(_ compact: String) -> Bool {
+        let phrases = [
+            "by type", "by file type", "according to type", "according to their type",
+            "按类型", "按文件类型", "根据类型", "根据文件类型", "按扩展名", "分门别类",
+        ]
+        return phrases.contains { compact.contains($0) }
+    }
+
+    /// Single common words only match the whole command. A sentence that merely ends in "type" is not a file-type lookup.
+    private static func matchesExact(_ compact: String, _ aliases: [String]) -> Bool {
+        aliases.contains { compact == $0 }
     }
 
     private static func parseRename(compact: String, lower: String) -> InstantAction? {

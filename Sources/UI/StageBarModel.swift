@@ -16,6 +16,8 @@ final class StageBarModel: ObservableObject {
     @Published var phase: BarPhase = .idle
     @Published var thinkingNote: String = ""
     @Published var showIdeas = false
+    @Published var pendingChoices: [String] = []
+    @Published var awaitingReply = false
     @Published var focusToken = UUID()
     private var lastSubmittedQuery = ""
     private var historyIndex: Int?
@@ -28,13 +30,15 @@ final class StageBarModel: ObservableObject {
     private var agentUpdated = Date.distantPast
     private var agentQuery = ""
     private var awaitingAsk = false
+    private var agentMutated = false
     private var continueAfterRun = false
     private var lastResultText = ""
 
     var barHeight: CGFloat {
+        if !pendingChoices.isEmpty { return 156 }
         switch phase {
-        case .idle: showIdeas ? 120 : BarPlacement.height
-        case .thinking, .preview, .running, .result: 104
+        case .idle: return showIdeas ? 120 : BarPlacement.height
+        case .thinking, .preview, .running, .result: return 104
         }
     }
 
@@ -50,9 +54,9 @@ final class StageBarModel: ObservableObject {
                 return
             }
             Task { await run(plan, continueAgent: continueAfterRun) }
-        case .thinking:
+        case .thinking, .running:
             return
-        case .running, .result, .idle:
+        case .result, .idle:
             parseQuery()
         }
         DockingController.shared.refresh()
@@ -105,6 +109,8 @@ final class StageBarModel: ObservableObject {
         session?.cancel()
         continueAfterRun = false
         awaitingAsk = false
+        awaitingReply = false
+        pendingChoices = []
         historyIndex = nil
         phase = .idle
         DockingController.shared.refresh()
@@ -135,6 +141,11 @@ final class StageBarModel: ObservableObject {
         DockingController.shared.refresh()
     }
 
+    func choose(_ option: String) {
+        query = option
+        submit()
+    }
+
     func favoriteLast() {
         RuleStore.shared.addFavorite(lastSubmittedQuery)
     }
@@ -147,8 +158,10 @@ final class StageBarModel: ObservableObject {
         query = ""
         lastSubmittedQuery = trimmed
         showIdeas = false
+        pendingChoices = []
         if awaitingAsk {
             awaitingAsk = false
+            awaitingReply = false
             Task { await stepAgent(user: trimmed) }
             return
         }
@@ -267,6 +280,9 @@ final class StageBarModel: ObservableObject {
             agentFolder = folder
         }
         agentQuery = query
+        agentMutated = false
+        pendingChoices = []
+        awaitingReply = false
         let exts = (context?.selected ?? []).map(\.url.pathExtension).filter { !$0.isEmpty }
         let skills = SkillCatalog.promptBlock(extensions: exts.isEmpty ? ["*"] : exts)
         let chinese = Locale.current.language.languageCode?.identifier == "zh"
@@ -282,13 +298,16 @@ final class StageBarModel: ObservableObject {
                 )
             )
         }
+        let selectedItems = context?.selected ?? []
+        let listing = selectedItems.isEmpty ? folder.flatMap { try? AgentTools.list(path: $0) } : nil
         agentMessages.append(
             ChatMessage(
                 role: .user,
                 content: CommandGenerator.userPrompt(
                     query: query,
                     folder: folder,
-                    selected: context?.selected ?? []
+                    selected: selectedItems,
+                    listing: listing
                 )
             )
         )
@@ -306,23 +325,68 @@ final class StageBarModel: ObservableObject {
         do {
             let provider = try settings.makeProvider()
             var turns = 0
+            var rejectedDone = 0
             while turns < 8 {
                 if Task.isCancelled { return }
                 turns += 1
                 let reply = try await provider.complete(messages: agentMessages, model: settings.model)
                 if Task.isCancelled { return }
                 agentMessages.append(ChatMessage(role: .assistant, content: reply))
-                let call = try AgentParser.parse(reply)
+                let call: AgentCall
+                do {
+                    call = try AgentParser.parse(reply)
+                } catch {
+                    if turns == 1, let generated = try? CommandGenerator.parseReply(reply) {
+                        let plan = CommandGenerator.plan(
+                            from: generated,
+                            query: agentQuery,
+                            folder: context?.folderURL,
+                            selected: (context?.selected ?? []).map(\.url),
+                            autoRun: settings.autoRun
+                        )
+                        continueAfterRun = false
+                        if let error = plan.error {
+                            phase = .result(ok: false, text: error)
+                            TaskHistory.shared.record(query: agentQuery, summary: error, ok: false)
+                        } else if plan.autoRun {
+                            await run(plan, continueAgent: false)
+                        } else {
+                            phase = .preview(plan)
+                        }
+                        DockingController.shared.refresh()
+                        return
+                    }
+                    throw error
+                }
                 thinkingNote = call.summary
                 agentUpdated = Date()
                 switch call.tool {
                 case .done:
-                    phase = .result(ok: true, text: call.summary)
-                    TaskHistory.shared.record(query: agentQuery, summary: call.summary, ok: true)
+                    let finished = AgentFinish.result(
+                        query: agentQuery,
+                        summary: call.summary,
+                        mutated: agentMutated,
+                        filesLeft: looseFilesLeft()
+                    )
+                    if !finished.ok, rejectedDone < 2 {
+                        rejectedDone += 1
+                        var note = "ERROR: \(finished.text) Do not call done. Next JSON must move every remaining file, using absolute paths."
+                        if let folder = context?.folderURL, let listing = try? AgentTools.list(path: folder) {
+                            note += "\nFolder contents:\n\(listing)"
+                        }
+                        agentMessages.append(ChatMessage(role: .user, content: note))
+                        continue
+                    }
+                    pendingChoices = []
+                    awaitingReply = false
+                    phase = .result(ok: finished.ok, text: finished.text)
+                    TaskHistory.shared.record(query: agentQuery, summary: finished.text, ok: finished.ok)
                     DockingController.shared.refresh()
                     return
                 case .askUser:
                     awaitingAsk = true
+                    awaitingReply = true
+                    pendingChoices = call.options
                     phase = .result(ok: true, text: call.question ?? call.summary)
                     DockingController.shared.refresh()
                     return
@@ -395,6 +459,7 @@ final class StageBarModel: ObservableObject {
         continueAgent: Bool,
         recordContinue: Bool = true
     ) async -> CommandRunner.Outcome {
+        guard self.session == nil else { return .failure("Already running") }
         let session = CommandRunner.Session()
         self.session = session
         continueAfterRun = false
@@ -403,8 +468,10 @@ final class StageBarModel: ObservableObject {
         let jobID = JobQueue.shared.start(query: plan.query, summary: plan.summary)
         DockingController.shared.refresh()
         let report = await CommandRunner.runWithUndo(plan, session: session)
+        self.session = nil
         switch report.outcome {
         case .success(let text):
+            if planChangesFiles(plan) { agentMutated = true }
             let display = text.isEmpty ? plan.summary : text
             lastResultText = display
             phase = .result(ok: true, text: display)
@@ -421,6 +488,7 @@ final class StageBarModel: ObservableObject {
             phase = .result(ok: false, text: text)
             NSLog("[Understage] Plan execution failed: '%@' - error: %@", plan.summary, text)
             TaskHistory.shared.record(query: plan.query, summary: text, ok: false)
+            UndoJournal.shared.record(query: plan.query, summary: plan.summary, actions: report.undos)
             JobQueue.shared.finish(jobID, status: .failed, summary: text)
             if continueAgent, recordContinue {
                 agentMessages.append(ChatMessage(role: .user, content: "TOOL_RESULT:\nERROR \(text)"))
@@ -428,10 +496,36 @@ final class StageBarModel: ObservableObject {
             }
         case .cancelled:
             phase = .result(ok: false, text: String(localized: "Cancelled"))
+            UndoJournal.shared.record(query: plan.query, summary: plan.summary, actions: report.undos)
             JobQueue.shared.finish(jobID, status: .cancelled)
         }
         self.session = nil
         DockingController.shared.refresh()
         return report.outcome
+    }
+
+    private func looseFilesLeft() -> Int {
+        guard let folder = context?.folderURL else { return 0 }
+        let urls = (try? FileManager.default.contentsOfDirectory(
+            at: folder,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        )) ?? []
+        return urls.filter { url in
+            let dir = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+            return !dir
+        }.count
+    }
+
+    private func planChangesFiles(_ plan: CommandPlan) -> Bool {
+        if !plan.creates.isEmpty || !plan.trashes.isEmpty { return true }
+        return plan.steps.contains { step in
+            switch step {
+            case .select, .copyPasteboard, .openTerminal, .fileInfo:
+                return false
+            default:
+                return true
+            }
+        }
     }
 }

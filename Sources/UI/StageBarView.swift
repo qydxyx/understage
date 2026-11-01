@@ -11,14 +11,17 @@ struct StageBarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
-                if !model.permissions.allGranted {
+                if !model.permissions.accessibility {
                     permissionRow
                 } else {
                     contextRow
                 }
             }
-            if model.permissions.allGranted {
+            if model.permissions.accessibility {
                 phaseRow
+                if !model.pendingChoices.isEmpty {
+                    choicesRow
+                }
                 if model.showIdeas, case .idle = model.phase {
                     ideasRow
                 }
@@ -91,17 +94,27 @@ struct StageBarView: View {
             .lineLimit(1)
             .frame(maxWidth: 160, alignment: .leading)
         chips
-        TextField("Enter query or command", text: $model.query)
+        TextField(model.awaitingReply ? "Reply…" : "Enter query or command", text: $model.query)
             .textFieldStyle(.plain)
             .focused($isFieldFocused)
             .disabled({
-                if case .thinking = model.phase { true } else { false }
+                switch model.phase {
+                case .thinking, .running: true
+                default: false
+                }
             }())
             .onSubmit(model.submit)
             .onTapGesture {
                 isFieldFocused = true
                 onFieldFocused()
             }
+        if !model.permissions.finderAutomation {
+            Button("Grant Finder Access") {
+                PermissionGate.promptFinderAutomation()
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
         Button {
             model.toggleIdeas()
         } label: {
@@ -159,7 +172,6 @@ struct StageBarView: View {
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
                     .disabled(plan.error != nil || plan.missingTool != nil)
-                    .keyboardShortcut(.return)
             }
         case .running(let plan):
             HStack(spacing: 8) {
@@ -176,17 +188,30 @@ struct StageBarView: View {
             HStack(spacing: 8) {
                 Text(text)
                     .font(.caption)
-                    .foregroundStyle(ok ? Color.secondary : Color.red)
-                    .lineLimit(3)
+                    .foregroundStyle(model.awaitingReply ? Color.primary : (ok ? Color.secondary : Color.red))
+                    .lineLimit(model.awaitingReply ? 4 : 3)
                 Spacer()
                 if undo.last != nil {
                     Button("Undo", action: model.undoLast)
                         .controlSize(.small)
                 }
-                if ok {
+                if ok, !model.awaitingReply {
                     Button("★") { model.favoriteLast() }
                         .controlSize(.small)
                         .help("Save favorite")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var choicesRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(model.pendingChoices, id: \.self) { choice in
+                    Button(choice) { model.choose(choice) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
                 }
             }
         }

@@ -53,6 +53,8 @@ enum CommandRunner {
                 let result = try await perform(step, cwd: plan.workingDirectory, session: session)
                 if let line = result.log { logs.append(line) }
                 undos.append(contentsOf: result.undos)
+            } catch is RunCancelled {
+                return (.cancelled, undos)
             } catch {
                 return (.failure(error.localizedDescription), undos)
             }
@@ -78,11 +80,12 @@ enum CommandRunner {
         switch step {
         case .process(let executable, let arguments):
             for arg in arguments {
-                await ensureDownloadedIfNeeded(arg)
+                try await ensureDownloadedIfNeeded(arg)
             }
             let log = try await runProcess(executable, arguments, cwd: cwd, session: session)
             return (log, [])
         case .trash(let url):
+            try await ensureDownloadedIfNeeded(url)
             var resulting: NSURL?
             try FileManager.default.trashItem(at: url, resultingItemURL: &resulting)
             var undos: [UndoAction] = []
@@ -91,11 +94,21 @@ enum CommandRunner {
             }
             return ("Trashed \(url.lastPathComponent)", undos)
         case .copyFile(let from, let to):
+            try await ensureDownloadedIfNeeded(from)
             try FileManager.default.copyItem(at: from, to: to)
             return ("Copied \(to.lastPathComponent)", [.trashCreated(to.path)])
         case .move(let from, let to):
-            try FileManager.default.moveItem(at: from, to: to)
-            return ("Moved \(from.lastPathComponent)", [.moveBack(from: to.path, to: from.path)])
+            try await ensureDownloadedIfNeeded(from)
+            let destination = try Self.destinationForMove(from: from, to: to)
+            try FileManager.default.createDirectory(
+                at: destination.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try FileMoves.move(from, to: destination)
+            return ("Moved \(from.lastPathComponent)", [.moveBack(from: destination.path, to: from.path)])
+        case .fileInfo(let field, let items, let folder):
+            let text = await FileInfo.reportLoaded(field: field, items: items, folder: folder)
+            return (text, [])
         case .copyPasteboard(let text):
             await MainActor.run {
                 NSPasteboard.general.clearContents()
@@ -113,9 +126,9 @@ enum CommandRunner {
             task.waitUntilExit()
             return ("Opened Terminal", [])
         case .mergePDF(let sources, let dest):
-            return try mergePDF(sources: sources, dest: dest)
+            return try await mergePDF(sources: sources, dest: dest)
         case .splitPDF(let source, let destFolder):
-            return try splitPDF(source: source, destFolder: destFolder)
+            return try await splitPDF(source: source, destFolder: destFolder)
         case .ocr(let sources, let destTxt, let copyToPasteboard):
             return try await ocr(sources: sources, destTxt: destTxt, copyToPasteboard: copyToPasteboard)
         }
@@ -155,7 +168,7 @@ enum CommandRunner {
                     return String(data: collected, encoding: .utf8) ?? ""
                 }
                 if session.isCancelled {
-                    continuation.resume(returning: "Cancelled")
+                    continuation.resume(throwing: RunCancelled())
                     return
                 }
                 if proc.terminationStatus == 0 {
@@ -186,9 +199,23 @@ enum CommandRunner {
         }
     }
 
-    private static func ensureDownloadedIfNeeded(_ path: String) async {
+    /// `mv` into an existing directory. `FileManager.moveItem` does not, so append the filename.
+    private static func destinationForMove(from: URL, to: URL) throws -> URL {
+        var isDir: ObjCBool = false
+        if FileManager.default.fileExists(atPath: to.path, isDirectory: &isDir), isDir.boolValue {
+            return to.appendingPathComponent(from.lastPathComponent)
+        }
+        return to
+    }
+
+    private struct RunCancelled: Error {}
+
+    private static func ensureDownloadedIfNeeded(_ path: String) async throws {
         guard path.starts(with: "/") else { return }
-        let url = URL(fileURLWithPath: path)
+        try await ensureDownloadedIfNeeded(URL(fileURLWithPath: path))
+    }
+
+    private static func ensureDownloadedIfNeeded(_ url: URL) async throws {
         var isDir: ObjCBool = false
         guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir), !isDir.boolValue else {
             return
@@ -211,9 +238,20 @@ enum CommandRunner {
                 return
             }
         }
+        throw NSError(
+            domain: "Understage",
+            code: -2,
+            userInfo: [
+                NSLocalizedDescriptionKey:
+                    "Cloud file is not downloaded yet: \(url.lastPathComponent). Keep it on this device and try again.",
+            ]
+        )
     }
 
-    private static func mergePDF(sources: [URL], dest: URL) throws -> (log: String?, undos: [UndoAction]) {
+    private static func mergePDF(sources: [URL], dest: URL) async throws -> (log: String?, undos: [UndoAction]) {
+        for source in sources {
+            try await ensureDownloadedIfNeeded(source)
+        }
         let outputDoc = PDFDocument()
         var pageCount = 0
         for source in sources {
@@ -252,7 +290,8 @@ enum CommandRunner {
         return ("Merged \(sources.count) files (\(pageCount) pages) to \(dest.lastPathComponent)", [.trashCreated(dest.path)])
     }
 
-    private static func splitPDF(source: URL, destFolder: URL) throws -> (log: String?, undos: [UndoAction]) {
+    private static func splitPDF(source: URL, destFolder: URL) async throws -> (log: String?, undos: [UndoAction]) {
+        try await ensureDownloadedIfNeeded(source)
         guard let doc = PDFDocument(url: source) else {
             throw NSError(
                 domain: "Understage",
@@ -295,18 +334,27 @@ enum CommandRunner {
     private static func ocr(sources: [URL], destTxt: URL?, copyToPasteboard: Bool) async throws -> (log: String?, undos: [UndoAction]) {
         var allText: [String] = []
         for source in sources {
+            try await ensureDownloadedIfNeeded(source)
             let ext = source.pathExtension.lowercased()
             if ext == "pdf" {
-                if let doc = PDFDocument(url: source) {
-                    var docText = ""
-                    for i in 0 ..< doc.pageCount {
-                        if let page = doc.page(at: i), let str = page.string, !str.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            docText += str + "\n"
+                guard let doc = PDFDocument(url: source) else { continue }
+                var docText = ""
+                for i in 0 ..< doc.pageCount {
+                    guard let page = doc.page(at: i) else { continue }
+                    if let str = page.string?.trimmingCharacters(in: .whitespacesAndNewlines), !str.isEmpty {
+                        docText += str + "\n"
+                    } else {
+                        let bounds = page.bounds(for: .mediaBox)
+                        let size = CGSize(width: max(bounds.width * 2, 1), height: max(bounds.height * 2, 1))
+                        let image = page.thumbnail(of: size, for: .mediaBox)
+                        let recognized = try await recognizeImage(image)
+                        if !recognized.isEmpty {
+                            docText += recognized + "\n"
                         }
                     }
-                    if !docText.isEmpty {
-                        allText.append(docText.trimmingCharacters(in: .whitespacesAndNewlines))
-                    }
+                }
+                if !docText.isEmpty {
+                    allText.append(docText.trimmingCharacters(in: .whitespacesAndNewlines))
                 }
             } else {
                 let recognized = try await recognizeImageText(url: source)
@@ -317,7 +365,11 @@ enum CommandRunner {
         }
         let combined = allText.joined(separator: "\n\n---\n\n")
         guard !combined.isEmpty else {
-            return ("No text recognized in selected file(s).", [])
+            throw NSError(
+                domain: "Understage",
+                code: -3,
+                userInfo: [NSLocalizedDescriptionKey: "No text recognized in selected file(s)."]
+            )
         }
         var undos: [UndoAction] = []
         if let dest = destTxt {
@@ -335,29 +387,43 @@ enum CommandRunner {
     }
 
     private static func recognizeImageText(url: URL) async throws -> String {
-        guard let image = NSImage(contentsOf: url),
-              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+        guard let image = NSImage(contentsOf: url) else { return "" }
+        return try await recognizeImage(image)
+    }
+
+    private static func recognizeImage(_ image: NSImage) async throws -> String {
+        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             return ""
         }
         return try await withCheckedThrowingContinuation { continuation in
+            let resumed = OSAllocatedUnfairLock(initialState: false)
+            let finish: (Result<String, Error>) -> Void = { result in
+                let first = resumed.withLock { flag -> Bool in
+                    if flag { return false }
+                    flag = true
+                    return true
+                }
+                guard first else { return }
+                continuation.resume(with: result)
+            }
             let request = VNRecognizeTextRequest { request, error in
                 if let error {
-                    continuation.resume(throwing: error)
+                    finish(.failure(error))
                     return
                 }
                 let observations = request.results as? [VNRecognizedTextObservation] ?? []
                 let strings = observations.compactMap { $0.topCandidates(1).first?.string }
-                continuation.resume(returning: strings.joined(separator: "\n"))
+                finish(.success(strings.joined(separator: "\n")))
             }
             request.recognitionLevel = .accurate
-            request.recognitionLanguages = ["zh-Hans", "zh-Hant", "en-US"]
+            request.recognitionLanguages = ["zh-Hans", "en-US"]
             request.usesLanguageCorrection = true
 
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
             do {
                 try handler.perform([request])
             } catch {
-                continuation.resume(throwing: error)
+                finish(.failure(error))
             }
         }
     }

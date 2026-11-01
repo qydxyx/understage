@@ -32,7 +32,7 @@ final class StageBarPanel: NSPanel {
         hidesOnDeactivate = false
         isReleasedWhenClosed = false
         animationBehavior = .none
-        collectionBehavior = [.fullScreenAuxiliary, .ignoresCycle]
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
         contentView = hosting
     }
 
@@ -43,10 +43,16 @@ final class StageBarPanel: NSPanel {
         model.handleEscape()
     }
 
+    var isComposing: Bool {
+        guard let editor = fieldEditor(false, for: nil) as? NSTextInputClient else { return false }
+        return editor.hasMarkedText()
+    }
+
     func place(frame: CGRect) {
+        if isComposing { return }
         let current = self.frame
-        let sameSize = abs(current.width - frame.width) < 0.5 && abs(current.height - frame.height) < 0.5
-        let sameOrigin = abs(current.minX - frame.minX) < 0.5 && abs(current.minY - frame.minY) < 0.5
+        let sameSize = abs(current.width - frame.width) < 1 && abs(current.height - frame.height) < 1
+        let sameOrigin = abs(current.minX - frame.minX) < 1 && abs(current.minY - frame.minY) < 1
         if sameSize && sameOrigin {
             if !isVisible { orderFrontRegardless() }
             return

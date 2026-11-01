@@ -71,9 +71,7 @@ enum FinderAX {
         if let id = PrivateAX.windowID(of: element), id != 0 {
             key = .cgWindow(id)
         } else {
-            key = .fallback(
-                "\(title)-\(Int(frame.origin.x))-\(Int(frame.origin.y))-\(Int(frame.width))-\(Int(frame.height))"
-            )
+            key = .fallback("\(title)|\(Int(frame.width))x\(Int(frame.height))")
         }
         return AXFinderWindow(
             key: key,
@@ -115,7 +113,13 @@ enum FinderAX {
         }
         if items.isEmpty, depth < 4 {
             let children: [AXUIElement] = AXAttr.copy(element, "AXChildren") ?? []
-            for child in children.prefix(12) {
+            for child in children.prefix(40) {
+                if AXAttr.bool(child, "AXSelected") == true,
+                   let item = item(from: child),
+                   seen.insert(item.url).inserted
+                {
+                    items.append(item)
+                }
                 let role: String = AXAttr.copy(child, "AXRole") ?? ""
                 if interestingRole(role) {
                     collectSelected(child, depth: depth + 1, into: &items, seen: &seen)
@@ -133,6 +137,10 @@ enum FinderAX {
             || role == "AXGroup"
             || role == "AXRow"
             || role == "AXLayoutArea"
+            || role == "AXLayoutItem"
+            || role == "AXImage"
+            || role == "AXCell"
+            || role == "AXStaticText"
     }
 
     private static func item(from element: AXUIElement) -> SelectedItem? {

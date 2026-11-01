@@ -89,7 +89,7 @@ enum CommandGenerator {
         """
     }
 
-    static func userPrompt(query: String, folder: URL?, selected: [SelectedItem]) -> String {
+    static func userPrompt(query: String, folder: URL?, selected: [SelectedItem], listing: String? = nil) -> String {
         var lines = ["Request: \(query)"]
         if let folder {
             lines.append("Folder: \(folder.path)")
@@ -102,6 +102,10 @@ enum CommandGenerator {
                 let kind = item.isDirectory ? "dir" : "file"
                 lines.append("- \(kind)\t\(item.url.path)")
             }
+        }
+        if let listing, !listing.isEmpty {
+            lines.append("Folder contents:")
+            lines.append(listing)
         }
         return lines.joined(separator: "\n")
     }

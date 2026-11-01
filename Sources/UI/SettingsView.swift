@@ -48,6 +48,16 @@ struct SettingsView: View {
                 Text("Summons or focuses the Understage command bar under the active Finder window.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if settings.hotKey == .controlSpace {
+                    Text("Control+Space is the system shortcut for switching input sources.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if !settings.hotKeyRegistered, settings.hotKey != .disabled {
+                    Text("Shortcut is already used by another app.")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             }
             Section("Rules") {
                 ForEach(rules.rules) { rule in

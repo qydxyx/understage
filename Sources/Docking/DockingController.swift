@@ -31,7 +31,11 @@ final class DockingController {
     private var contentTimer: Timer?
     private var displayLink: CADisplayLink?
     private var scriptingWindows: [ScriptingFinderWindow] = []
+    private var frontSelection: [SelectedItem] = []
+    private var axElements: [WindowKey: AXUIElement] = [:]
     private var lastScriptingRefresh: Date = .distantPast
+    private var scriptingInFlight = false
+    private var lastPermissionCheck: Date = .distantPast
     private var refreshPending = false
     private var missingFrameStreak = 0
     private var movingUntil: Date = .distantPast
@@ -45,7 +49,7 @@ final class DockingController {
         NSLog("[Understage] Initial permissions: accessibility=%d, finderAutomation=%d",
               perms.accessibility ? 1 : 0, perms.finderAutomation ? 1 : 0)
         refresh()
-        let timer = Timer(timeInterval: 0.25, repeats: true) { _ in
+        let timer = Timer(timeInterval: 0.5, repeats: true) { _ in
             MainActor.assumeIsolated {
                 DockingController.shared.refresh()
             }
@@ -71,7 +75,7 @@ final class DockingController {
 
         refresh()
 
-        if let focused = FinderAX.focusedWindow(), let panel = panels[focused.key] {
+        if let focused = FinderAX.focusedWindow(), let panel = panelMatching( focused) {
             panel.focusForTyping()
             return
         }
@@ -86,22 +90,45 @@ final class DockingController {
         }
     }
 
+    func prefillFrontBar(_ query: String, submit: Bool) {
+        refresh()
+        let panel: StageBarPanel?
+        if let focused = FinderAX.focusedWindow(), let existing = panelMatching( focused) {
+            panel = existing
+        } else if let desktop = panels[.desktop] {
+            panel = desktop
+        } else {
+            panel = panels.values.first
+        }
+        guard let panel else { return }
+        panel.focusForTyping()
+        panel.model.query = query
+        if submit {
+            panel.model.submit()
+        }
+    }
+
     func refresh() {
         if Date() < movingUntil {
             syncFrames()
             return
         }
-        let currentPerms = PermissionGate.current()
-        if currentPerms != appModel.permissions {
-            NSLog("[Understage] Permissions changed: accessibility=%d, finderAutomation=%d",
-                  currentPerms.accessibility ? 1 : 0, currentPerms.finderAutomation ? 1 : 0)
-            appModel.permissions = currentPerms
+        let now = Date()
+        if now.timeIntervalSince(lastPermissionCheck) > 2 || panels.isEmpty {
+            lastPermissionCheck = now
+            let currentPerms = PermissionGate.current()
+            if currentPerms != appModel.permissions {
+                NSLog("[Understage] Permissions changed: accessibility=%d, finderAutomation=%d",
+                      currentPerms.accessibility ? 1 : 0, currentPerms.finderAutomation ? 1 : 0)
+                appModel.permissions = currentPerms
+            }
         }
         installObserverIfNeeded()
 
         let ourAppIsActive = NSApp.isActive
         let finderFront = FinderAX.isFinderFrontmost()
         let barIsKey = panels.values.contains { $0.isKeyWindow }
+        let shouldShow = finderFront || ourAppIsActive || barIsKey
 
         guard appModel.permissions.accessibility else {
             pauseDisplayLink()
@@ -112,27 +139,47 @@ final class DockingController {
             return
         }
 
+        guard shouldShow else {
+            pauseDisplayLink()
+            hideAll()
+            if appModel.trackedWindowCount != 0 {
+                appModel.trackedWindowCount = 0
+            }
+            return
+        }
+
         let axWindows = FinderAX.windows().filter { !$0.isMinimized }
         refreshScriptingIfNeeded()
 
         var desired: [WindowKey: StageContext] = [:]
-        for window in axWindows {
+        var elements: [WindowKey: AXUIElement] = [:]
+        var consumed = Set<WindowKey>()
+        let frontIndex = frontWindowIndex(in: axWindows)
+        for (index, window) in axWindows.enumerated() {
+            let key = stableKey(for: window, consumed: consumed)
+            consumed.insert(key)
             let folder = window.documentURL
                 ?? FinderScripting.matchTarget(
                     title: window.title,
                     cocoaSize: window.cocoaFrame.size,
                     windows: scriptingWindows
                 )
-            desired[window.key] = StageContext(
-                windowID: cgWindowID(window.key),
+            var selected = window.selected
+            if selected.isEmpty, index == frontIndex || axWindows.count == 1 {
+                selected = frontSelection
+            }
+            desired[key] = StageContext(
+                windowID: cgWindowID(key),
                 folderURL: folder,
                 folderName: folder?.lastPathComponent ?? window.title,
-                selected: window.selected,
+                selected: selected,
                 title: window.title,
                 cocoaFrame: window.cocoaFrame,
                 isDesktop: false
             )
+            elements[key] = window.element
         }
+        axElements = elements
 
         if axWindows.isEmpty && finderFront {
             if let screen = NSScreen.main {
@@ -141,22 +188,12 @@ final class DockingController {
                     windowID: 0,
                     folderURL: folder,
                     folderName: "Desktop",
-                    selected: [],
+                    selected: frontSelection,
                     title: "Desktop",
                     cocoaFrame: screen.visibleFrame,
                     isDesktop: true
                 )
             }
-        }
-
-        let shouldShow = finderFront || ourAppIsActive || barIsKey
-        if !shouldShow {
-            pauseDisplayLink()
-            hideAll()
-            if appModel.trackedWindowCount != 0 {
-                appModel.trackedWindowCount = 0
-            }
-            return
         }
 
         for key in panels.keys where desired[key] == nil {
@@ -211,7 +248,14 @@ final class DockingController {
                     panel.place(frame: BarPlacement.desktopBarFrame(on: screen, height: panel.model.barHeight))
                 }
             case .fallback:
-                continue
+                guard let element = axElements[key],
+                      let position = AXAttr.point(element, "AXPosition"),
+                      let size = AXAttr.size(element, "AXSize")
+                else { continue }
+                let cocoa = AXGeometry.cocoaRect(axPosition: position, axSize: size)
+                if place(panel, under: cocoa, desktop: false) {
+                    movingUntil = Date().addingTimeInterval(0.2)
+                }
             }
         }
         if missed > 0 {
@@ -271,15 +315,73 @@ final class DockingController {
 
     private func refreshScriptingIfNeeded() {
         guard appModel.permissions.finderAutomation else { return }
+        guard !scriptingInFlight else { return }
         let now = Date()
         guard now.timeIntervalSince(lastScriptingRefresh) > 0.4 else { return }
         lastScriptingRefresh = now
+        scriptingInFlight = true
         Task.detached {
-            let windows = FinderScripting.listWindows()
+            let shot = FinderScripting.snapshot()
             await MainActor.run {
-                DockingController.shared.scriptingWindows = windows
+                DockingController.shared.scriptingInFlight = false
+                DockingController.shared.scriptingWindows = shot.windows
+                DockingController.shared.frontSelection = shot.frontSelection
             }
         }
+    }
+
+    private func frontWindowIndex(in windows: [AXFinderWindow]) -> Int? {
+        guard let front = scriptingWindows.first else {
+            return windows.count == 1 ? 0 : nil
+        }
+        let matches = windows.enumerated().filter { $0.element.title == front.name }
+        if matches.count == 1 { return matches[0].offset }
+        if matches.isEmpty { return windows.count == 1 ? 0 : nil }
+        let size = CGSize(width: front.width, height: front.height)
+        return matches.min { lhs, rhs in
+            sizeDistance(lhs.element.cocoaFrame.size, size) < sizeDistance(rhs.element.cocoaFrame.size, size)
+        }?.offset
+    }
+
+    private func sizeDistance(_ lhs: CGSize, _ rhs: CGSize) -> Double {
+        let dw = lhs.width - rhs.width
+        let dh = lhs.height - rhs.height
+        return dw * dw + dh * dh
+    }
+
+    private func stableKey(for window: AXFinderWindow, consumed: Set<WindowKey>) -> WindowKey {
+        if case .cgWindow = window.key { return window.key }
+        let candidates = panels.keys.filter { key in
+            guard case .fallback = key, !consumed.contains(key) else { return false }
+            return panels[key]?.model.context?.title == window.title
+        }
+        if candidates.count == 1, let only = candidates.first { return only }
+        if candidates.count > 1 {
+            return candidates.min { lhs, rhs in
+                centerDistance(panels[lhs]?.frame ?? .zero, window.cocoaFrame)
+                    < centerDistance(panels[rhs]?.frame ?? .zero, window.cocoaFrame)
+            } ?? window.key
+        }
+        if !consumed.contains(window.key) { return window.key }
+        return .fallback("\(window.title)|\(UUID().uuidString)")
+    }
+
+    private func centerDistance(_ panel: CGRect, _ window: CGRect) -> CGFloat {
+        let dx = panel.midX - window.midX
+        let dy = panel.midY - window.midY
+        return dx * dx + dy * dy
+    }
+
+    private func panelMatching(_ window: AXFinderWindow) -> StageBarPanel? {
+        if let panel = panels[window.key] { return panel }
+        guard case .fallback = window.key else { return nil }
+        let matches = panels.filter { key, panel in
+            guard case .fallback = key else { return false }
+            return panel.model.context?.title == window.title
+        }
+        return matches.min { lhs, rhs in
+            centerDistance(lhs.value.frame, window.cocoaFrame) < centerDistance(rhs.value.frame, window.cocoaFrame)
+        }?.value
     }
 
     private func startDisplayLinkIfNeeded() {
@@ -292,7 +394,7 @@ final class DockingController {
             target: DisplayLinkProxy.shared,
             selector: #selector(DisplayLinkProxy.tick(_:))
         )
-        link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 120)
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30, preferred: 30)
         link.add(to: .main, forMode: .common)
         displayLink = link
     }

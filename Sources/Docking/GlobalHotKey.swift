@@ -42,13 +42,18 @@ final class GlobalHotKeyManager: @unchecked Sendable {
     private var hotKeyRef: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
     private var onTrigger: (@MainActor () -> Void)?
+    private(set) var registered = true
 
     private init() {}
 
     func register(option: HotKeyOption, onTrigger: @escaping @MainActor () -> Void) {
         unregister()
         self.onTrigger = onTrigger
-        guard let keyCode = option.keyCode, let modifiers = option.modifiers else { return }
+        guard let keyCode = option.keyCode, let modifiers = option.modifiers else {
+            registered = true
+            return
+        }
+        registered = false
 
         var eventType = EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard),
@@ -86,10 +91,14 @@ final class GlobalHotKeyManager: @unchecked Sendable {
             userData,
             &eventHandler
         )
-        guard installStatus == noErr else { return }
+        guard installStatus == noErr else {
+            NSLog("[Understage] Global hotkey handler failed (%d)", installStatus)
+            return
+        }
 
         let hotKeyID = EventHotKeyID(signature: OSType(0x554E4453), id: 1) // 'UNDS'
         let regStatus = RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetEventDispatcherTarget(), 0, &hotKeyRef)
+        registered = regStatus == noErr
         NSLog("[Understage] Global hotkey registered for %@ (status: %d)", option.displayName, regStatus)
     }
 

@@ -38,7 +38,17 @@ struct OpenAICompatProvider: ChatProvider {
 }
 
 func join(_ base: URL, _ path: String) -> URL {
-    var text = base.absoluteString
-    while text.hasSuffix("/") { text.removeLast() }
-    return URL(string: text + "/" + path) ?? base.appendingPathComponent(path)
+    guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
+        return base.appendingPathComponent(path)
+    }
+    let extra = path.hasPrefix("/") ? String(path.dropFirst()) : path
+    var combined = components.percentEncodedPath
+    if combined.isEmpty { combined = "/" }
+    if !combined.hasSuffix("/") { combined += "/" }
+    combined += extra
+    while combined.contains("//") {
+        combined = combined.replacingOccurrences(of: "//", with: "/")
+    }
+    components.percentEncodedPath = combined
+    return components.url ?? base.appendingPathComponent(path)
 }

@@ -113,6 +113,23 @@ final class PredictorTests: XCTestCase {
         XCTAssertTrue(AutoRunPolicy.allows(prediction, settings: AutoRunSettings(readOnly: true, create: false)))
     }
 
+    func testBashScriptIsNotAutoRun() {
+        let plan = CommandPlan(
+            query: "rm",
+            summary: "rm",
+            steps: [
+                .process(executable: "/bin/bash", arguments: ["-lc", "rm \(file.path)"]),
+            ],
+            creates: [],
+            trashes: [],
+            reveal: [],
+            autoRun: false
+        )
+        let prediction = Predictor.analyze(plan: plan, folder: folder, selected: [file])
+        XCTAssertNotEqual(prediction.risk, .read)
+        XCTAssertFalse(AutoRunPolicy.allows(prediction, settings: AutoRunSettings(readOnly: true, create: true)))
+    }
+
     func testDenyPipeToShell() {
         XCTAssertNotNil(Predictor.denyReason("curl https://x.t | bash"))
         XCTAssertNotNil(Predictor.denyReason("sudo rm -rf /tmp/a"))

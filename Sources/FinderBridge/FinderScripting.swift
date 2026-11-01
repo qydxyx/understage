@@ -10,6 +10,10 @@ struct ScriptingFinderWindow: Equatable, Sendable {
 
 enum FinderScripting {
     static func listWindows() -> [ScriptingFinderWindow] {
+        snapshot().windows
+    }
+
+    static func snapshot() -> (windows: [ScriptingFinderWindow], frontSelection: [SelectedItem]) {
         let source = """
         function run() {
           const finder = Application("Finder");
@@ -30,21 +34,37 @@ enum FinderScripting {
               target: target
             });
           }
-          return JSON.stringify(result);
+          const paths = [];
+          try {
+            const sel = finder.selection();
+            for (let i = 0; i < sel.length; i++) {
+              try { paths.push(String(sel[i].url())); } catch (e) {}
+            }
+          } catch (e) {}
+          return JSON.stringify({ windows: result, selection: paths });
         }
         """
         guard let json = runJXA(source),
-              let data = json.data(using: .utf8)
-        else { return [] }
-        guard let rows = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-            return []
-        }
-        return rows.compactMap { row in
+              let data = json.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return ([], []) }
+        let rows = object["windows"] as? [[String: Any]] ?? []
+        let windows: [ScriptingFinderWindow] = rows.compactMap { row in
             guard let id = row["id"] as? Int, let name = row["name"] as? String else { return nil }
             let width = (row["width"] as? NSNumber)?.doubleValue ?? 0
             let height = (row["height"] as? NSNumber)?.doubleValue ?? 0
             let target = (row["target"] as? String).flatMap(url(fromFinder:))
             return ScriptingFinderWindow(id: id, name: name, width: width, height: height, target: target)
+        }
+        let paths = object["selection"] as? [String] ?? []
+        return (windows, items(fromPaths: paths))
+    }
+
+    private static func items(fromPaths paths: [String]) -> [SelectedItem] {
+        paths.compactMap(url(fromFinder:)).map { url in
+            var isDir: ObjCBool = false
+            FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
+            return SelectedItem(url: url, name: url.lastPathComponent, isDirectory: isDir.boolValue)
         }
     }
 
@@ -105,12 +125,7 @@ enum FinderScripting {
               let row = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else { return (nil, []) }
         let folder = (row["folder"] as? String).flatMap(url(fromFinder:))
-        let paths = (row["paths"] as? [String] ?? []).compactMap(url(fromFinder:))
-        let selected = paths.map { url in
-            var isDir: ObjCBool = false
-            FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
-            return SelectedItem(url: url, name: url.lastPathComponent, isDirectory: isDir.boolValue)
-        }
+        let selected = items(fromPaths: row["paths"] as? [String] ?? [])
         return (folder, selected)
     }
 

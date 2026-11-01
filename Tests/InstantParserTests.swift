@@ -13,13 +13,24 @@ final class InstantParserTests: XCTestCase {
 
     func testMediaAndInfo() {
         XCTAssertEqual(InstantParser.parse("1080p"), .scaleVideo(height: 1080))
-        XCTAssertEqual(InstantParser.parse("convert to 1080p mp4"), .scaleVideo(height: 1080))
+        XCTAssertEqual(InstantParser.parse("convert to 1080p"), .scaleVideo(height: 1080))
+        XCTAssertNil(InstantParser.parse("1080p 并抽出音频"))
         XCTAssertEqual(InstantParser.parse("提取音频"), .extractAudio)
         XCTAssertEqual(InstantParser.parse("去音频"), .stripAudio)
         XCTAssertEqual(InstantParser.parse("词数"), .info(.wordCount))
+        XCTAssertEqual(InstantParser.parse("字数"), .info(.charCount))
         XCTAssertEqual(InstantParser.parse("word count"), .info(.wordCount))
         XCTAssertEqual(InstantParser.parse("大小"), .info(.size))
         XCTAssertEqual(InstantParser.parse("路径"), .info(.path))
+        XCTAssertEqual(InstantParser.parse("type"), .info(.fileType))
+        XCTAssertEqual(
+            InstantParser.parse("根据文件类型移动到不同的文件夹中"),
+            .organizeByType
+        )
+        XCTAssertEqual(
+            InstantParser.parse("sort the files into different folders according to their type"),
+            .organizeByType
+        )
         XCTAssertEqual(InstantParser.parse("copy path"), .copyPath)
     }
 
@@ -274,5 +285,71 @@ final class CommandPlannerTests: XCTestCase {
             return XCTFail("expected move step")
         }
         XCTAssertEqual(toReplace.lastPathComponent, "orange.jpg")
+    }
+
+    func testSameBasenameConvertsDoNotCollide() {
+        let selected = [item("/tmp/photo.png"), item("/tmp/photo.heic")]
+        let plan = CommandPlanner.plan(
+            action: .convert(.jpg),
+            query: "jpg",
+            selected: selected,
+            folder: URL(fileURLWithPath: "/tmp"),
+            tools: tools,
+            exists: { _ in false }
+        )
+        XCTAssertEqual(Set(plan.creates.map(\.lastPathComponent)), ["photo.jpg", "photo_1.jpg"])
+    }
+
+    func testOrganizeByTypePlansEveryFile() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("understage-sort-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        for name in ["a.pdf", "b.pdf", "c.docx"] {
+            try "x".write(to: dir.appendingPathComponent(name), atomically: true, encoding: .utf8)
+        }
+        let plan = CommandPlanner.plan(
+            action: .organizeByType,
+            query: "根据文件类型移动到不同的文件夹中",
+            selected: [],
+            folder: dir,
+            tools: tools
+        )
+        XCTAssertEqual(plan.steps.count, 3)
+        XCTAssertTrue(plan.summary.contains("3 files"))
+        XCTAssertFalse(plan.autoRun)
+        let dests = plan.steps.compactMap { step -> String? in
+            if case .move(_, let to) = step { return to.path }
+            return nil
+        }
+        XCTAssertTrue(dests.contains { $0.hasSuffix("/PDF/a.pdf") })
+        XCTAssertTrue(dests.contains { $0.hasSuffix("/PDF/b.pdf") })
+        XCTAssertTrue(dests.contains { $0.hasSuffix("/DOCX/c.docx") })
+    }
+
+    func testZipRefusesMixedFolders() {
+        let plan = CommandPlanner.plan(
+            action: .zip,
+            query: "zip",
+            selected: [item("/tmp/a/one.png"), item("/tmp/b/two.png")],
+            folder: URL(fileURLWithPath: "/tmp"),
+            tools: tools
+        )
+        XCTAssertEqual(plan.error, "Select files from the same folder to zip.")
+    }
+
+    func testCharacterCountSkipsWhitespace() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("understage-chars-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("note.txt")
+        try "你好 world".write(to: file, atomically: true, encoding: .utf8)
+        let text = FileInfo.report(
+            field: .charCount,
+            items: [item(file.path)],
+            folder: dir
+        )
+        XCTAssertTrue(text.contains("7 chars"))
     }
 }

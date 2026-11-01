@@ -11,6 +11,7 @@ enum PlanStep: Equatable, Sendable {
     case mergePDF(sources: [URL], dest: URL)
     case splitPDF(source: URL, destFolder: URL)
     case ocr(sources: [URL], destTxt: URL?, copyToPasteboard: Bool)
+    case fileInfo(InfoField, items: [SelectedItem], folder: URL?)
 }
 
 struct CommandPlan: Equatable, Sendable {
