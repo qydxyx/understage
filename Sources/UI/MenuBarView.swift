@@ -33,12 +33,12 @@ struct MenuBarView: View {
                     .foregroundStyle(.red)
             }
             if jobs.runningCount > 0 {
-                Text("\(jobs.runningCount) running")
+                Text(L10n.format("%ld running", jobs.runningCount))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             if let last = undo.last {
-                Button("Undo \(last.summary)") {
+                Button(L10n.format("Undo %@", last.summary)) {
                     _ = undo.undoLast()
                 }
             }
@@ -73,11 +73,11 @@ struct MenuBarView: View {
     private var statusText: String {
         let p = appModel.permissions
         if p.allGranted {
-            return String(localized: "Watching Finder windows")
+            return L10n.tr("Watching Finder windows")
         }
         if !p.accessibility {
-            return String(localized: "Needs Accessibility")
+            return L10n.tr("Needs Accessibility")
         }
-        return String(localized: "Needs Finder automation")
+        return L10n.tr("Needs Finder automation")
     }
 }

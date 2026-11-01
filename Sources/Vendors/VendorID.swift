@@ -26,7 +26,7 @@ enum VendorID: String, CaseIterable, Identifiable, Codable, Sendable {
         case .deepseek: "DeepSeek"
         case .ollama: "Ollama"
         case .lmstudio: "LM Studio"
-        case .custom: "Custom"
+        case .custom: L10n.tr("Custom")
         }
     }
 

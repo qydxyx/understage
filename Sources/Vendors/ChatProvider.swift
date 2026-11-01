@@ -23,10 +23,10 @@ enum ChatProviderError: Error, LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notConfigured: String(localized: "Add an API key or start a local model in Settings.")
-        case .badURL: String(localized: "Vendor base URL is invalid.")
+        case .notConfigured: L10n.tr("Add an API key or start a local model in Settings.")
+        case .badURL: L10n.tr("Vendor base URL is invalid.")
         case .http(let code, let body): "HTTP \(code): \(body.prefix(240))"
-        case .emptyReply: String(localized: "The model returned an empty reply.")
+        case .emptyReply: L10n.tr("The model returned an empty reply.")
         }
     }
 }

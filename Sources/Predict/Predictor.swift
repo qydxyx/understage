@@ -51,7 +51,7 @@ enum Predictor {
                 reversible = false
                 trashes.append(url)
                 if let hit = forbiddenPath(url) {
-                    return deny("Refuses to touch \(hit)")
+                    return deny(L10n.format("Refuses to touch %@", hit))
                 }
             case .copyFile(_, let to):
                 risk = escalate(risk, .create)
@@ -63,7 +63,7 @@ enum Predictor {
             case .move(let from, let to):
                 risk = escalate(risk, .mutate)
                 if let hit = forbiddenPath(from) ?? forbiddenPath(to) {
-                    return deny("Refuses to touch \(hit)")
+                    return deny(L10n.format("Refuses to touch %@", hit))
                 }
                 if let replaced = moveWouldReplace(from: from, to: to) {
                     overwrites.append(replaced)
@@ -78,7 +78,7 @@ enum Predictor {
             case .splitPDF(_, let destFolder):
                 risk = escalate(risk, .create)
                 if let hit = forbiddenPath(destFolder) {
-                    return deny("Refuses to touch \(hit)")
+                    return deny(L10n.format("Refuses to touch %@", hit))
                 }
             case .ocr(_, let destTxt, _):
                 if let dest = destTxt {
@@ -94,16 +94,16 @@ enum Predictor {
                 if !allowedExecutable(executable) {
                     risk = escalate(risk, .unknown)
                     reversible = false
-                    reasons.append("Unlisted executable \(name)")
+                    reasons.append(L10n.format("Unlisted executable %@", name))
                 }
                 if networkExecutable(name) {
                     risk = escalate(risk, .network)
-                    reasons.append("Network tool \(name)")
+                    reasons.append(L10n.format("Network tool %@", name))
                 }
                 if shellInterpreter(name) {
                     risk = escalate(risk, .unknown)
                     reversible = false
-                    reasons.append("Shell or script interpreter \(name)")
+                    reasons.append(L10n.format("Shell or script interpreter %@", name))
                 }
                 if mutatingExecutable(name) || arguments.contains(where: { $0 == "-rf" || $0 == "--delete" }) {
                     risk = escalate(risk, .mutate)
@@ -115,12 +115,12 @@ enum Predictor {
                     guard looksLikePath(arg) else { continue }
                     let url = URL(fileURLWithPath: (arg as NSString).expandingTildeInPath)
                     if let hit = forbiddenPath(url) {
-                        return deny("Refuses to touch \(hit)")
+                        return deny(L10n.format("Refuses to touch %@", hit))
                     }
                     if !isInside(url, roots: workspace), !isSystemReadPath(url) {
                         risk = escalate(risk, .unknown)
                         reversible = false
-                        reasons.append("Path outside folder: \(url.path)")
+                        reasons.append(L10n.format("Path outside folder: %@", url.path))
                     }
                     if FileManager.default.fileExists(atPath: url.path), creatingExecutable(name) {
                         let inferred = inferredOutputs(arguments)
@@ -137,7 +137,7 @@ enum Predictor {
         if !overwrites.isEmpty {
             risk = escalate(risk, .mutate)
             reversible = false
-            reasons.append("Would overwrite existing files")
+            reasons.append(L10n.tr("Would overwrite existing files"))
         }
         return Prediction(
             risk: risk,
@@ -174,14 +174,14 @@ enum Predictor {
             if lower.contains(pattern) {
                 if pattern == "curl " || pattern == "wget " { continue }
                 if pattern.hasPrefix("curl") || pattern.hasPrefix("wget") { continue }
-                return "Blocked pattern: \(pattern.trimmingCharacters(in: .whitespaces))"
+                return L10n.format("Blocked pattern: %@", pattern.trimmingCharacters(in: .whitespaces))
             }
         }
-        if lower.contains("sudo") { return "Blocked pattern: sudo" }
+        if lower.contains("sudo") { return L10n.tr("Blocked pattern: sudo") }
         if lower.range(of: #"curl[^\n]*\|\s*(ba)?sh"#, options: .regularExpression) != nil
             || lower.range(of: #"wget[^\n]*\|\s*(ba)?sh"#, options: .regularExpression) != nil
         {
-            return "Blocked pattern: download|shell"
+            return L10n.tr("Blocked pattern: download|shell")
         }
         return nil
     }

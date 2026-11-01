@@ -1,4 +1,4 @@
-.PHONY: all gen build test run cli install dist clean
+.PHONY: all gen build test run cli install dist package clean
 
 SCHEME := Understage
 CLI_SCHEME := UnderstageCLI
@@ -32,6 +32,9 @@ dist: gen
 	xcodebuild -scheme $(CLI_SCHEME) -configuration Release -destination '$(DEST)' -derivedDataPath $(DERIVED) -quiet build
 	@echo "App: $(DERIVED)/Build/Products/Release/Understage.app"
 	@echo "CLI: $(DERIVED)/Build/Products/Release/understage"
+
+package: dist
+	scripts/package-app.sh $(DERIVED)
 
 clean:
 	rm -rf $(DERIVED) Understage.xcodeproj

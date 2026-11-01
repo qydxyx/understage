@@ -92,11 +92,11 @@ enum CommandRunner {
             if let trashURL = resulting as? URL {
                 undos = [.restoreFromTrash(original: url.path, trash: trashURL.path)]
             }
-            return ("Trashed \(url.lastPathComponent)", undos)
+            return (L10n.format("Trashed %@", url.lastPathComponent), undos)
         case .copyFile(let from, let to):
             try await ensureDownloadedIfNeeded(from)
             try FileManager.default.copyItem(at: from, to: to)
-            return ("Copied \(to.lastPathComponent)", [.trashCreated(to.path)])
+            return (L10n.format("Copied %@", to.lastPathComponent), [.trashCreated(to.path)])
         case .move(let from, let to):
             try await ensureDownloadedIfNeeded(from)
             let destination = try Self.destinationForMove(from: from, to: to)
@@ -105,7 +105,7 @@ enum CommandRunner {
                 withIntermediateDirectories: true
             )
             try FileMoves.move(from, to: destination)
-            return ("Moved \(from.lastPathComponent)", [.moveBack(from: destination.path, to: from.path)])
+            return (L10n.format("Moved %@", from.lastPathComponent), [.moveBack(from: destination.path, to: from.path)])
         case .fileInfo(let field, let items, let folder):
             let text = await FileInfo.reportLoaded(field: field, items: items, folder: folder)
             return (text, [])
@@ -114,17 +114,17 @@ enum CommandRunner {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(text, forType: .string)
             }
-            return ("Copied to clipboard", [])
+            return (L10n.tr("Copied to clipboard"), [])
         case .select(let urls):
             FinderScripting.select(urls)
-            return ("Selected \(urls.count) item(s)", [])
+            return (L10n.format("Selected %ld item(s)", urls.count), [])
         case .openTerminal(let folder):
             let task = Process()
             task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
             task.arguments = ["-a", "Terminal", folder.path]
             try task.run()
             task.waitUntilExit()
-            return ("Opened Terminal", [])
+            return (L10n.tr("Opened Terminal"), [])
         case .mergePDF(let sources, let dest):
             return try await mergePDF(sources: sources, dest: dest)
         case .splitPDF(let source, let destFolder):
@@ -176,7 +176,7 @@ enum CommandRunner {
                 } else {
                     var message = out.trimmingCharacters(in: .whitespacesAndNewlines)
                     if message.contains("Cannot extract image from file") || proc.terminationStatus == 13 {
-                        message += "\n(Tip: If this file is stored in Google Drive / iCloud, please right-click it in Finder and choose 'Always keep on this device' or ensure it is downloaded.)"
+                        message += "\n" + L10n.tr("If this file is in iCloud or another cloud drive, keep it on this device and try again.")
                     }
                     continuation.resume(
                         throwing: NSError(
@@ -184,7 +184,7 @@ enum CommandRunner {
                             code: Int(proc.terminationStatus),
                             userInfo: [
                                 NSLocalizedDescriptionKey: message.isEmpty
-                                    ? "Command failed (\(proc.terminationStatus))"
+                                    ? L10n.format("Command failed (%ld)", Int(proc.terminationStatus))
                                     : message,
                             ]
                         )
@@ -243,7 +243,7 @@ enum CommandRunner {
             code: -2,
             userInfo: [
                 NSLocalizedDescriptionKey:
-                    "Cloud file is not downloaded yet: \(url.lastPathComponent). Keep it on this device and try again.",
+                    L10n.format("Cloud file is not downloaded yet: %@. Keep it on this device and try again.", url.lastPathComponent),
             ]
         )
     }
@@ -276,18 +276,18 @@ enum CommandRunner {
             throw NSError(
                 domain: "Understage",
                 code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "No valid pages to merge."]
+                userInfo: [NSLocalizedDescriptionKey: L10n.tr("No valid pages to merge.")]
             )
         }
         guard outputDoc.write(to: dest) else {
             throw NSError(
                 domain: "Understage",
                 code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to write merged PDF to \(dest.lastPathComponent)"]
+                userInfo: [NSLocalizedDescriptionKey: L10n.format("Failed to write merged PDF to %@", dest.lastPathComponent)]
             )
         }
         FinderScripting.select([dest])
-        return ("Merged \(sources.count) files (\(pageCount) pages) to \(dest.lastPathComponent)", [.trashCreated(dest.path)])
+        return (L10n.format("Merged %ld files (%ld pages) to %@", sources.count, pageCount, dest.lastPathComponent), [.trashCreated(dest.path)])
     }
 
     private static func splitPDF(source: URL, destFolder: URL) async throws -> (log: String?, undos: [UndoAction]) {
@@ -296,7 +296,7 @@ enum CommandRunner {
             throw NSError(
                 domain: "Understage",
                 code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Cannot open PDF: \(source.lastPathComponent)"]
+                userInfo: [NSLocalizedDescriptionKey: L10n.format("Cannot open PDF: %@", source.lastPathComponent)]
             )
         }
         let total = doc.pageCount
@@ -304,7 +304,7 @@ enum CommandRunner {
             throw NSError(
                 domain: "Understage",
                 code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "PDF has only 1 page, no split needed."]
+                userInfo: [NSLocalizedDescriptionKey: L10n.tr("PDF has only 1 page, no split needed.")]
             )
         }
         let baseName = source.deletingPathExtension().lastPathComponent
@@ -328,7 +328,7 @@ enum CommandRunner {
             }
         }
         FinderScripting.select(createdURLs)
-        return ("Split \(source.lastPathComponent) into \(createdURLs.count) pages", undos)
+        return (L10n.format("Split %@ into %ld pages", source.lastPathComponent, createdURLs.count), undos)
     }
 
     private static func ocr(sources: [URL], destTxt: URL?, copyToPasteboard: Bool) async throws -> (log: String?, undos: [UndoAction]) {
@@ -368,7 +368,7 @@ enum CommandRunner {
             throw NSError(
                 domain: "Understage",
                 code: -3,
-                userInfo: [NSLocalizedDescriptionKey: "No text recognized in selected file(s)."]
+                userInfo: [NSLocalizedDescriptionKey: L10n.tr("No text recognized in selected file(s).")]
             )
         }
         var undos: [UndoAction] = []
@@ -383,7 +383,7 @@ enum CommandRunner {
             }
         }
         let preview = combined.prefix(80).replacingOccurrences(of: "\n", with: " ")
-        return ("OCR copied to clipboard (\(combined.count) chars): \"\(preview)…\"", undos)
+        return (L10n.format("OCR copied to clipboard (%ld chars): \"%@…\"", combined.count, String(preview)), undos)
     }
 
     private static func recognizeImageText(url: URL) async throws -> String {

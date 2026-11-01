@@ -1,5 +1,6 @@
 .DS_Store
 .derived/
+dist/release/
 DerivedData/
 build/
 *.xcodeproj

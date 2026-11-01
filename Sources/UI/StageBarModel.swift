@@ -26,8 +26,6 @@ final class StageBarModel: ObservableObject {
     private var session: CommandRunner.Session?
     private var work: Task<Void, Never>?
     private var agentMessages: [ChatMessage] = []
-    private var agentFolder: URL?
-    private var agentUpdated = Date.distantPast
     private var agentQuery = ""
     private var awaitingAsk = false
     private var agentMutated = false
@@ -213,11 +211,11 @@ final class StageBarModel: ObservableObject {
     private func askModel(_ query: String) {
         let settings = VendorSettings.shared
         guard settings.isConfigured else {
-            phase = .result(ok: false, text: String(localized: "Add an API key or start a local model in Settings."))
+            phase = .result(ok: false, text: L10n.tr("Add an API key or start a local model in Settings."))
             return
         }
         let context = self.context
-        let chinese = Locale.current.language.languageCode?.identifier == "zh"
+        let chinese = L10n.prefersChinese(for: query)
         phase = .thinking
         thinkingNote = ""
         work = Task {
@@ -271,21 +269,19 @@ final class StageBarModel: ObservableObject {
     private func startAgent(_ query: String) {
         let settings = VendorSettings.shared
         guard settings.isConfigured else {
-            phase = .result(ok: false, text: String(localized: "Add an API key or start a local model in Settings."))
+            phase = .result(ok: false, text: L10n.tr("Add an API key or start a local model in Settings."))
             return
         }
         let folder = context?.folderURL
-        if folder != agentFolder || Date().timeIntervalSince(agentUpdated) > 600 {
-            agentMessages = []
-            agentFolder = folder
-        }
+        // Each typed command starts clean. A reply to ask_user continues in stepAgent.
+        agentMessages = []
         agentQuery = query
         agentMutated = false
         pendingChoices = []
         awaitingReply = false
         let exts = (context?.selected ?? []).map(\.url.pathExtension).filter { !$0.isEmpty }
         let skills = SkillCatalog.promptBlock(extensions: exts.isEmpty ? ["*"] : exts)
-        let chinese = Locale.current.language.languageCode?.identifier == "zh"
+        let chinese = L10n.prefersChinese(for: query)
         if agentMessages.isEmpty {
             agentMessages.append(
                 ChatMessage(
@@ -320,7 +316,7 @@ final class StageBarModel: ObservableObject {
         }
         let settings = VendorSettings.shared
         phase = .thinking
-        thinkingNote = String(localized: "Agent working…")
+        thinkingNote = L10n.tr("Agent working…")
         DockingController.shared.refresh()
         do {
             let provider = try settings.makeProvider()
@@ -359,7 +355,6 @@ final class StageBarModel: ObservableObject {
                     throw error
                 }
                 thinkingNote = call.summary
-                agentUpdated = Date()
                 switch call.tool {
                 case .done:
                     let finished = AgentFinish.result(
@@ -408,9 +403,9 @@ final class StageBarModel: ObservableObject {
                     }
                     if plan.autoRun {
                         var text = await execute(plan)
-                        if call.tool == .move, plan.steps.count < 2, looseFilesLeft() > 0 {
+                        if AgentFinish.asksForChange(agentQuery), call.tool == .move, plan.steps.count < 2, looseFilesLeft() > 0 {
                             let left = looseFilesLeft()
-                            text += "\nMORE_FILES: \(left) files remain. Reply with ONE move whose moves array includes every remaining file. Do not move one file per turn."
+                            text += "\nMORE_FILES: \(left) files from this organize request remain. Include those in one move call. Do not move files the user did not ask to organize."
                         }
                         agentMessages.append(ChatMessage(role: .user, content: "TOOL_RESULT:\n\(text)"))
                         continue
@@ -421,7 +416,7 @@ final class StageBarModel: ObservableObject {
                     return
                 }
             }
-            let stopped = String(localized: "Agent stopped after too many steps.")
+            let stopped = L10n.tr("Agent stopped after too many steps.")
             phase = .result(ok: false, text: stopped)
             TaskHistory.shared.record(query: agentQuery, summary: stopped, ok: false)
         } catch {
@@ -465,7 +460,7 @@ final class StageBarModel: ObservableObject {
         continueAgent: Bool,
         recordContinue: Bool = true
     ) async -> CommandRunner.Outcome {
-        guard self.session == nil else { return .failure("Already running") }
+        guard self.session == nil else { return .failure(L10n.tr("Already running")) }
         let session = CommandRunner.Session()
         self.session = session
         continueAfterRun = false
@@ -501,7 +496,7 @@ final class StageBarModel: ObservableObject {
                 await stepAgent(user: nil)
             }
         case .cancelled:
-            phase = .result(ok: false, text: String(localized: "Cancelled"))
+            phase = .result(ok: false, text: L10n.tr("Cancelled"))
             UndoJournal.shared.record(query: plan.query, summary: plan.summary, actions: report.undos)
             JobQueue.shared.finish(jobID, status: .cancelled)
         }

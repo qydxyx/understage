@@ -198,7 +198,7 @@ final class CommandPlannerTests: XCTestCase {
             folder: URL(fileURLWithPath: "/tmp"),
             tools: tools
         )
-        XCTAssertEqual(plan.error, "No convertible files in the selection.")
+        XCTAssertEqual(plan.error, L10n.tr("No convertible files in the selection."))
     }
 
     func testPDFMergePlanner() {
@@ -339,7 +339,7 @@ final class CommandPlannerTests: XCTestCase {
             tools: tools
         )
         XCTAssertEqual(plan.steps.count, 3)
-        XCTAssertTrue(plan.summary.contains("3 files"))
+        XCTAssertEqual(plan.summary, L10n.format("Move %ld files into %@", 3, "文档"))
         XCTAssertFalse(plan.autoRun)
         let dests = plan.steps.compactMap { step -> String? in
             if case .move(_, let to) = step { return to.path }
@@ -358,7 +358,7 @@ final class CommandPlannerTests: XCTestCase {
             folder: URL(fileURLWithPath: "/tmp"),
             tools: tools
         )
-        XCTAssertEqual(plan.error, "Select files from the same folder to zip.")
+        XCTAssertEqual(plan.error, L10n.tr("Select files from the same folder to zip."))
     }
 
     func testCharacterCountSkipsWhitespace() throws {
@@ -373,6 +373,6 @@ final class CommandPlannerTests: XCTestCase {
             items: [item(file.path)],
             folder: dir
         )
-        XCTAssertTrue(text.contains("7 chars"))
+        XCTAssertTrue(text.contains(L10n.format("%ld chars", 7)))
     }
 }

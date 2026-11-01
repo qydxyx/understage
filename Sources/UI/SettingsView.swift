@@ -116,9 +116,9 @@ struct SettingsView: View {
     private var localStatus: String {
         switch settings.vendor {
         case .ollama:
-            settings.ollamaReachable ? "Ollama is reachable on :11434" : "Ollama not detected on :11434"
+            settings.ollamaReachable ? L10n.tr("Ollama is reachable on :11434") : L10n.tr("Ollama not detected on :11434")
         case .lmstudio:
-            settings.lmStudioReachable ? "LM Studio is reachable on :1234" : "LM Studio not detected on :1234"
+            settings.lmStudioReachable ? L10n.tr("LM Studio is reachable on :1234") : L10n.tr("LM Studio not detected on :1234")
         default:
             ""
         }

@@ -11,10 +11,10 @@ enum HotKeyOption: String, CaseIterable, Identifiable, Codable, Sendable {
 
     var displayName: String {
         switch self {
-        case .optionSpace: "Option + Space (⌥Space)"
-        case .optionCommandU: "Option + Command + U (⌥⌘U)"
-        case .controlSpace: "Control + Space (^Space)"
-        case .disabled: "Disabled"
+        case .optionSpace: L10n.tr("Option + Space (⌥Space)")
+        case .optionCommandU: L10n.tr("Option + Command + U (⌥⌘U)")
+        case .controlSpace: L10n.tr("Control + Space (^Space)")
+        case .disabled: L10n.tr("Disabled")
         }
     }
 

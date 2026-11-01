@@ -14,7 +14,7 @@ final class SettingsPresenter: NSObject, NSWindowDelegate {
             let hosting = NSHostingController(rootView: SettingsView())
             hosting.sizingOptions = [.preferredContentSize]
             let win = NSWindow(contentViewController: hosting)
-            win.title = String(localized: "Understage Settings")
+            win.title = L10n.tr("Understage Settings")
             win.styleMask = [.titled, .closable, .miniaturizable]
             win.setContentSize(NSSize(width: 480, height: 560))
             win.center()

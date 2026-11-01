@@ -1,7 +1,7 @@
 class Understage < Formula
   desc "Instant Actions CLI for macOS Finder (part of Understage)"
   homepage "https://github.com/qydxyx/understage-macos"
-  url "https://github.com/qydxyx/understage-macos/archive/refs/tags/v0.1.0.tar.gz"
+  url "https://github.com/qydxyx/understage-macos/archive/refs/tags/v1.0.1.tar.gz"
   license "MIT"
   depends_on :macos => :sequoia
   depends_on :xcode => ["16.0", :build]

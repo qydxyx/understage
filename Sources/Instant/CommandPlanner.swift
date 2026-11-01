@@ -24,7 +24,7 @@ enum CommandPlanner {
             if field == .duration || field == .codec || field == .fps {
                 return CommandPlan(
                     query: query,
-                    summary: "Read \(field.rawValue)",
+                    summary: L10n.format("Read %@", field.rawValue),
                     steps: [.fileInfo(field, items: selected, folder: folder)],
                     creates: [],
                     trashes: [],
@@ -53,11 +53,11 @@ enum CommandPlanner {
             return trash(query: query, selected: selected)
         case .openTerminal:
             guard let folder else {
-                return fail(query, "No folder to open in Terminal.")
+                return fail(query, L10n.tr("No folder to open in Terminal."))
             }
             return CommandPlan(
                 query: query,
-                summary: "Open Terminal in \(folder.path)",
+                summary: L10n.format("Open Terminal in %@", folder.path),
                 steps: [.openTerminal(folder)],
                 creates: [],
                 trashes: [],
@@ -66,10 +66,10 @@ enum CommandPlanner {
             )
         case .copyPath:
             let paths = pathList(selected: selected, folder: folder)
-            guard !paths.isEmpty else { return fail(query, "Nothing to copy.") }
+            guard !paths.isEmpty else { return fail(query, L10n.tr("Nothing to copy.")) }
             return CommandPlan(
                 query: query,
-                summary: "Copy \(paths.count) path(s) to the clipboard",
+                summary: L10n.format("Copy %ld path(s) to the clipboard", paths.count),
                 steps: [.copyPasteboard(paths.joined(separator: "\n"))],
                 creates: [],
                 trashes: [],
@@ -111,7 +111,7 @@ enum CommandPlanner {
         exists: @escaping (URL) -> Bool
     ) -> CommandPlan {
         let files = selected.filter { !$0.isDirectory }.map(\.url)
-        guard !files.isEmpty else { return fail(query, "Select files to convert.") }
+        guard !files.isEmpty else { return fail(query, L10n.tr("Select files to convert.")) }
         let reserved = PathReservation(base: exists)
         var steps: [PlanStep] = []
         var creates: [URL] = []
@@ -136,10 +136,10 @@ enum CommandPlanner {
         if let missing {
             return missingTool(query, missing)
         }
-        guard !steps.isEmpty else { return fail(query, "No convertible files in the selection.") }
+        guard !steps.isEmpty else { return fail(query, L10n.tr("No convertible files in the selection.")) }
         return CommandPlan(
             query: query,
-            summary: "Convert \(creates.count) file(s) to \(format.pathExtension.uppercased())",
+            summary: L10n.format("Convert %ld file(s) to %@", creates.count, format.pathExtension.uppercased()),
             steps: steps,
             creates: creates,
             trashes: [],
@@ -254,7 +254,7 @@ enum CommandPlanner {
     ) -> CommandPlan {
         guard let ffmpeg = tools.ffmpeg else { return missingTool(query, "ffmpeg") }
         let videos = selected.map(\.url).filter { mediaGroup($0.pathExtension) == .video }
-        guard !videos.isEmpty else { return fail(query, "Select a video.") }
+        guard !videos.isEmpty else { return fail(query, L10n.tr("Select a video.")) }
         var steps: [PlanStep] = []
         var creates: [URL] = []
         for source in videos {
@@ -277,7 +277,7 @@ enum CommandPlanner {
         }
         return CommandPlan(
             query: query,
-            summary: "Transcode \(creates.count) video(s) to \(height)p",
+            summary: L10n.format("Transcode %ld video(s) to %ldp", creates.count, height),
             steps: steps,
             creates: creates,
             trashes: [],
@@ -295,7 +295,7 @@ enum CommandPlanner {
     ) -> CommandPlan {
         guard let ffmpeg = tools.ffmpeg else { return missingTool(query, "ffmpeg") }
         let videos = selected.map(\.url).filter { FileCategory.folder(for: $0) == FileCategory.videos }
-        guard !videos.isEmpty else { return fail(query, "Select a video.") }
+        guard !videos.isEmpty else { return fail(query, L10n.tr("Select a video.")) }
         var steps: [PlanStep] = []
         var creates: [URL] = []
         let label = height.map { "\($0)p HEVC" } ?? "HEVC"
@@ -316,7 +316,7 @@ enum CommandPlanner {
         }
         return CommandPlan(
             query: query,
-            summary: "Transcode \(creates.count) video(s) to \(label)",
+            summary: L10n.format("Transcode %ld video(s) to %@", creates.count, label),
             steps: steps,
             creates: creates,
             trashes: [],
@@ -336,7 +336,7 @@ enum CommandPlanner {
             let g = mediaGroup($0.pathExtension)
             return g == .video || g == .audio
         }
-        guard !sources.isEmpty else { return fail(query, "Select a video or audio file.") }
+        guard !sources.isEmpty else { return fail(query, L10n.tr("Select a video or audio file.")) }
         var steps: [PlanStep] = []
         var creates: [URL] = []
         for source in sources {
@@ -355,7 +355,7 @@ enum CommandPlanner {
         }
         return CommandPlan(
             query: query,
-            summary: "Extract audio from \(creates.count) file(s)",
+            summary: L10n.format("Extract audio from %ld file(s)", creates.count),
             steps: steps,
             creates: creates,
             trashes: [],
@@ -372,7 +372,7 @@ enum CommandPlanner {
     ) -> CommandPlan {
         guard let ffmpeg = tools.ffmpeg else { return missingTool(query, "ffmpeg") }
         let videos = selected.map(\.url).filter { mediaGroup($0.pathExtension) == .video }
-        guard !videos.isEmpty else { return fail(query, "Select a video.") }
+        guard !videos.isEmpty else { return fail(query, L10n.tr("Select a video.")) }
         var steps: [PlanStep] = []
         var creates: [URL] = []
         for source in videos {
@@ -391,7 +391,7 @@ enum CommandPlanner {
         }
         return CommandPlan(
             query: query,
-            summary: "Strip audio from \(creates.count) video(s)",
+            summary: L10n.format("Strip audio from %ld video(s)", creates.count),
             steps: steps,
             creates: creates,
             trashes: [],
@@ -409,10 +409,10 @@ enum CommandPlanner {
     ) -> CommandPlan {
         guard let zip = tools.zip else { return missingTool(query, "zip") }
         let items = selected.map(\.url)
-        guard !items.isEmpty else { return fail(query, "Select files to zip.") }
+        guard !items.isEmpty else { return fail(query, L10n.tr("Select files to zip.")) }
         let parents = Set(items.map { $0.deletingLastPathComponent().standardizedFileURL.path })
         guard parents.count == 1 else {
-            return fail(query, "Select files from the same folder to zip.")
+            return fail(query, L10n.tr("Select files from the same folder to zip."))
         }
         let directory = items[0].deletingLastPathComponent()
         let base = items.count == 1
@@ -422,7 +422,7 @@ enum CommandPlanner {
         let args = ["-r", dest.lastPathComponent] + items.map(\.lastPathComponent)
         return CommandPlan(
             query: query,
-            summary: "Zip \(items.count) item(s) → \(dest.lastPathComponent)",
+            summary: L10n.format("Zip %ld item(s) → %@", items.count, dest.lastPathComponent),
             steps: [.process(executable: zip, arguments: args)],
             creates: [dest],
             trashes: [],
@@ -440,7 +440,7 @@ enum CommandPlanner {
     ) -> CommandPlan {
         guard let ditto = tools.ditto else { return missingTool(query, "ditto") }
         let zips = selected.map(\.url).filter { $0.pathExtension.lowercased() == "zip" }
-        guard !zips.isEmpty else { return fail(query, "Select a zip file.") }
+        guard !zips.isEmpty else { return fail(query, L10n.tr("Select a zip file.")) }
         let reserved = PathReservation(base: exists)
         var steps: [PlanStep] = []
         var creates: [URL] = []
@@ -458,7 +458,7 @@ enum CommandPlanner {
         }
         return CommandPlan(
             query: query,
-            summary: "Unzip \(creates.count) archive(s)",
+            summary: L10n.format("Unzip %ld archive(s)", creates.count),
             steps: steps,
             creates: creates,
             trashes: [],
@@ -472,7 +472,7 @@ enum CommandPlanner {
         selected: [SelectedItem],
         exists: @escaping (URL) -> Bool
     ) -> CommandPlan {
-        guard !selected.isEmpty else { return fail(query, "Select files to duplicate.") }
+        guard !selected.isEmpty else { return fail(query, L10n.tr("Select files to duplicate.")) }
         let reserved = PathReservation(base: exists)
         var steps: [PlanStep] = []
         var creates: [URL] = []
@@ -488,7 +488,7 @@ enum CommandPlanner {
         }
         return CommandPlan(
             query: query,
-            summary: "Duplicate \(creates.count) item(s)",
+            summary: L10n.format("Duplicate %ld item(s)", creates.count),
             steps: steps,
             creates: creates,
             trashes: [],
@@ -498,11 +498,11 @@ enum CommandPlanner {
     }
 
     private static func trash(query: String, selected: [SelectedItem]) -> CommandPlan {
-        guard !selected.isEmpty else { return fail(query, "Select files to move to Trash.") }
+        guard !selected.isEmpty else { return fail(query, L10n.tr("Select files to move to Trash.")) }
         let urls = selected.map(\.url)
         return CommandPlan(
             query: query,
-            summary: "Move \(urls.count) item(s) to Trash",
+            summary: L10n.format("Move %ld item(s) to Trash", urls.count),
             steps: urls.map { .trash($0) },
             creates: [],
             trashes: urls,
@@ -517,7 +517,7 @@ enum CommandPlanner {
         ext: String,
         lastOnly: Bool
     ) -> CommandPlan {
-        guard let folder else { return fail(query, "No folder.") }
+        guard let folder else { return fail(query, L10n.tr("No folder.")) }
         let files = (try? FileManager.default.contentsOfDirectory(
             at: folder,
             includingPropertiesForKeys: [.contentModificationDateKey],
@@ -526,13 +526,13 @@ enum CommandPlanner {
         let matches = files
             .filter { $0.pathExtension.lowercased() == ext }
             .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
-        guard !matches.isEmpty else { return fail(query, "No .\(ext) files in this folder.") }
+        guard !matches.isEmpty else { return fail(query, L10n.format("No .%@ files in this folder.", ext)) }
         let chosen = lastOnly ? [matches.last!] : matches
         return CommandPlan(
             query: query,
             summary: lastOnly
-                ? "Select last .\(ext)"
-                : "Select \(chosen.count) .\(ext) file(s)",
+                ? L10n.format("Select last .%@", ext)
+                : L10n.format("Select %ld .%@ file(s)", chosen.count, ext),
             steps: [.select(chosen)],
             creates: [],
             trashes: [],
@@ -562,8 +562,8 @@ enum CommandPlanner {
 
     private static func missingTool(_ query: String, _ name: String) -> CommandPlan {
         let hint = name == "ffmpeg"
-            ? "ffmpeg is not installed. brew install ffmpeg"
-            : "\(name) is not available."
+            ? L10n.tr("ffmpeg is not installed. brew install ffmpeg")
+            : L10n.format("%@ is not available.", name)
         return CommandPlan(
             query: query,
             summary: hint,
@@ -589,13 +589,13 @@ enum CommandPlanner {
             return ext == "pdf" || ["jpg", "jpeg", "png", "heic", "webp", "gif"].contains(ext)
         }
         guard supported.count >= 2 else {
-            return fail(query, "Select at least 2 PDF or image files to merge.")
+            return fail(query, L10n.tr("Select at least 2 PDF or image files to merge."))
         }
         let targetFolder = folder ?? supported[0].deletingLastPathComponent()
         let dest = UniqueURL.next(in: targetFolder, name: "merged.pdf", exists: exists)
         return CommandPlan(
             query: query,
-            summary: "Merge \(supported.count) files into \(dest.lastPathComponent)",
+            summary: L10n.format("Merge %ld files into %@", supported.count, dest.lastPathComponent),
             steps: [.mergePDF(sources: supported, dest: dest)],
             creates: [dest],
             trashes: [],
@@ -613,12 +613,12 @@ enum CommandPlanner {
     ) -> CommandPlan {
         let pdfs = selected.filter { !$0.isDirectory && $0.url.pathExtension.lowercased() == "pdf" }.map(\.url)
         guard let first = pdfs.first else {
-            return fail(query, "Select a PDF file to split.")
+            return fail(query, L10n.tr("Select a PDF file to split."))
         }
         let targetFolder = folder ?? first.deletingLastPathComponent()
         return CommandPlan(
             query: query,
-            summary: "Split \(first.lastPathComponent) into individual pages",
+            summary: L10n.format("Split %@ into individual pages", first.lastPathComponent),
             steps: [.splitPDF(source: first, destFolder: targetFolder)],
             creates: [],
             trashes: [],
@@ -639,7 +639,7 @@ enum CommandPlanner {
             return ["png", "jpg", "jpeg", "heic", "webp", "gif", "pdf", "tiff", "bmp"].contains(ext)
         }
         guard !files.isEmpty else {
-            return fail(query, "Select an image or PDF file to extract text.")
+            return fail(query, L10n.tr("Select an image or PDF file to extract text."))
         }
         let targetFolder = folder ?? files[0].deletingLastPathComponent()
         let destTxt: URL
@@ -651,7 +651,7 @@ enum CommandPlanner {
         }
         return CommandPlan(
             query: query,
-            summary: "Extract text (OCR) from \(files.count) file(s)",
+            summary: L10n.format("Extract text (OCR) from %ld file(s)", files.count),
             steps: [.ocr(sources: files, destTxt: destTxt, copyToPasteboard: true)],
             creates: [destTxt],
             trashes: [],
@@ -669,7 +669,7 @@ enum CommandPlanner {
     ) -> CommandPlan {
         let files = selected.filter { !$0.isDirectory }.map(\.url)
         guard !files.isEmpty else {
-            return fail(query, "Select files to rename.")
+            return fail(query, L10n.tr("Select files to rename."))
         }
         let reserved = PathReservation(base: exists)
         var steps: [PlanStep] = []
@@ -684,11 +684,11 @@ enum CommandPlanner {
             reveals.append(dest)
         }
         guard !steps.isEmpty else {
-            return fail(query, "No files needed renaming.")
+            return fail(query, L10n.tr("No files needed renaming."))
         }
         return CommandPlan(
             query: query,
-            summary: "Rename \(steps.count) file(s)",
+            summary: L10n.format("Rename %ld file(s)", steps.count),
             steps: steps,
             creates: [],
             trashes: [],
@@ -794,7 +794,7 @@ enum CommandPlanner {
             files = picked
         }
         let sources = files.filter { !$0.lastPathComponent.hasPrefix("~$") }
-        guard !sources.isEmpty else { return fail(query, "No files to organize.") }
+        guard !sources.isEmpty else { return fail(query, L10n.tr("No files to organize.")) }
         let reserved = PathReservation(base: exists)
         var steps: [PlanStep] = []
         var groups = Set<String>()
@@ -808,7 +808,7 @@ enum CommandPlanner {
         }
         return CommandPlan(
             query: query,
-            summary: "Move \(steps.count) files into \(groups.sorted().joined(separator: ", "))",
+            summary: L10n.format("Move %ld files into %@", steps.count, groups.sorted().joined(separator: ", ")),
             steps: steps,
             creates: [],
             trashes: [],

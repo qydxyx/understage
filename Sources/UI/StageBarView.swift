@@ -97,7 +97,7 @@ struct StageBarView: View {
                 .foregroundStyle(.tertiary)
                 .help(selectionNames)
         }
-        TextField(model.awaitingReply ? "Reply…" : "Command", text: $model.query)
+        TextField(model.awaitingReply ? L10n.tr("Reply…") : L10n.tr("Command"), text: $model.query)
             .textFieldStyle(.plain)
             .focused($isFieldFocused)
             .disabled({
@@ -112,7 +112,7 @@ struct StageBarView: View {
                 onFieldFocused()
             }
         if !model.permissions.finderAutomation {
-            Button("访达") {
+            Button("Finder") {
                 PermissionGate.promptFinderAutomation()
             }
             .buttonStyle(.plain)
@@ -150,7 +150,7 @@ struct StageBarView: View {
                 ProgressView()
                     .controlSize(.small)
                 Text(model.thinkingNote.isEmpty
-                    ? "Asking \(settings.model.isEmpty ? settings.vendor.displayName : settings.model)…"
+                    ? L10n.format("Asking %@…", settings.model.isEmpty ? settings.vendor.displayName : settings.model)
                     : model.thinkingNote)
                     .font(.caption)
                     .lineLimit(1)
@@ -252,7 +252,7 @@ struct StageBarView: View {
             parts.append(plan.creates.prefix(3).map(\.lastPathComponent).joined(separator: ", "))
         }
         if !plan.trashes.isEmpty {
-            parts.append("Trash: " + plan.trashes.prefix(3).map(\.lastPathComponent).joined(separator: ", "))
+            parts.append(L10n.format("Trash: %@", plan.trashes.prefix(3).map(\.lastPathComponent).joined(separator: ", ")))
         }
         return parts.joined(separator: " · ")
     }
@@ -260,7 +260,7 @@ struct StageBarView: View {
     private var folderLabel: String {
         if let name = model.context?.folderName, !name.isEmpty { return name }
         if let title = model.context?.title, !title.isEmpty { return title }
-        return String(localized: "Finder")
+        return L10n.tr("Finder")
     }
 
     private var selectionCount: Int {

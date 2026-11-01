@@ -190,6 +190,1516 @@
           }
         }
       }
+    },
+    "Model": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "模型"
+          }
+        }
+      }
+    },
+    "Vendor": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服务商"
+          }
+        }
+      }
+    },
+    "Base URL": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接口地址"
+          }
+        }
+      }
+    },
+    "API key": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API key"
+          }
+        }
+      }
+    },
+    "Agent": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent"
+          }
+        }
+      }
+    },
+    "Allow multi-step agent": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允许多步 Agent"
+          }
+        }
+      }
+    },
+    "When on, longer requests can list, inspect, and retry instead of one command.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开启后，较长的请求可以列出、查看并重试，而不是只执行一条命令。"
+          }
+        }
+      }
+    },
+    "Shortcut": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "快捷键"
+          }
+        }
+      }
+    },
+    "Global Hotkey": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全局快捷键"
+          }
+        }
+      }
+    },
+    "Summons or focuses the Understage command bar under the active Finder window.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "唤起或聚焦当前访达窗口下的 Understage 命令栏。"
+          }
+        }
+      }
+    },
+    "Control+Space is the system shortcut for switching input sources.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Control+Space 是系统切换输入法的快捷键。"
+          }
+        }
+      }
+    },
+    "Shortcut is already used by another app.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个快捷键已被其他 App 占用。"
+          }
+        }
+      }
+    },
+    "Rules": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "规则"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除"
+          }
+        }
+      }
+    },
+    "Trigger (optional)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "触发词（可选）"
+          }
+        }
+      }
+    },
+    "Instruction": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "指令"
+          }
+        }
+      }
+    },
+    "Add rule": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加规则"
+          }
+        }
+      }
+    },
+    "Favorites": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "收藏"
+          }
+        }
+      }
+    },
+    "Star a successful result in the bar to save it.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在命令栏里给成功的结果加星，即可保存为收藏。"
+          }
+        }
+      }
+    },
+    "Auto-run": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自动执行"
+          }
+        }
+      }
+    },
+    "Read-only commands": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只读命令"
+          }
+        }
+      }
+    },
+    "File changes that can be undone": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可撤销的文件改动"
+          }
+        }
+      }
+    },
+    "Deletes, overwrites, network, and shell commands still ask first.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除、覆盖、联网和 shell 命令仍会先询问。"
+          }
+        }
+      }
+    },
+    "Ollama is reachable on :11434": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已连接到本机 Ollama（:11434）"
+          }
+        }
+      }
+    },
+    "Ollama not detected on :11434": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未检测到本机 Ollama（:11434）"
+          }
+        }
+      }
+    },
+    "LM Studio is reachable on :1234": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已连接到本机 LM Studio（:1234）"
+          }
+        }
+      }
+    },
+    "LM Studio not detected on :1234": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未检测到本机 LM Studio（:1234）"
+          }
+        }
+      }
+    },
+    "Option + Space (⌥Space)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Option + Space (⌥Space)"
+          }
+        }
+      }
+    },
+    "Option + Command + U (⌥⌘U)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Option + Command + U (⌥⌘U)"
+          }
+        }
+      }
+    },
+    "Control + Space (^Space)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Control + Space (^Space)"
+          }
+        }
+      }
+    },
+    "Disabled": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭"
+          }
+        }
+      }
+    },
+    "Ideas": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "想法"
+          }
+        }
+      }
+    },
+    "Save favorite": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存收藏"
+          }
+        }
+      }
+    },
+    "Reply…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回复…"
+          }
+        }
+      }
+    },
+    "Command": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "命令"
+          }
+        }
+      }
+    },
+    "%ld running": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%ld 个任务进行中"
+          }
+        }
+      }
+    },
+    "Undo %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "撤销 %@"
+          }
+        }
+      }
+    },
+    "Asking %@…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在询问 %@…"
+          }
+        }
+      }
+    },
+    "Trash: %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "废纸篓：%@"
+          }
+        }
+      }
+    },
+    "Custom": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自定义"
+          }
+        }
+      }
+    },
+    "Extract audio": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提取音频"
+          }
+        }
+      }
+    },
+    "Resolution": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分辨率"
+          }
+        }
+      }
+    },
+    "Unzip": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解压"
+          }
+        }
+      }
+    },
+    "Split PDF": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拆分 PDF"
+          }
+        }
+      }
+    },
+    "Select all PDFs": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选中所有 PDF"
+          }
+        }
+      }
+    },
+    "Merge to PDF": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "合并为 PDF"
+          }
+        }
+      }
+    },
+    "Word count": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "词数"
+          }
+        }
+      }
+    },
+    "Number 1 2 3": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "按序号 1 2 3"
+          }
+        }
+      }
+    },
+    "Date prefix": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日期前缀"
+          }
+        }
+      }
+    },
+    "Zip selection": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "压缩所选"
+          }
+        }
+      }
+    },
+    "Copy path": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制路径"
+          }
+        }
+      }
+    },
+    "Terminal": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "终端"
+          }
+        }
+      }
+    },
+    "Duplicate": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "制作副本"
+          }
+        }
+      }
+    },
+    "Zip": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "压缩"
+          }
+        }
+      }
+    },
+    "No folder to open in Terminal.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有可以在终端中打开的文件夹。"
+          }
+        }
+      }
+    },
+    "Nothing to copy.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有可复制的内容。"
+          }
+        }
+      }
+    },
+    "Select files to convert.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择要转换的文件。"
+          }
+        }
+      }
+    },
+    "No convertible files in the selection.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选中项里没有可转换的文件。"
+          }
+        }
+      }
+    },
+    "Read %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "读取 %@"
+          }
+        }
+      }
+    },
+    "Open Terminal in %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 %@ 打开终端"
+          }
+        }
+      }
+    },
+    "Copy %ld path(s) to the clipboard": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制 %ld 条路径到剪贴板"
+          }
+        }
+      }
+    },
+    "Convert %ld file(s) to %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将 %ld 个文件转换为 %@"
+          }
+        }
+      }
+    },
+    "Select a video.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择一个视频。"
+          }
+        }
+      }
+    },
+    "Transcode %ld video(s) to %ldp": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将 %ld 个视频转码为 %ldp"
+          }
+        }
+      }
+    },
+    "Transcode %ld video(s) to %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将 %ld 个视频转码为 %@"
+          }
+        }
+      }
+    },
+    "Select a video or audio file.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择视频或音频文件。"
+          }
+        }
+      }
+    },
+    "Extract audio from %ld file(s)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从 %ld 个文件提取音频"
+          }
+        }
+      }
+    },
+    "Strip audio from %ld video(s)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "去掉 %ld 个视频的音轨"
+          }
+        }
+      }
+    },
+    "Select files to zip.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择要压缩的文件。"
+          }
+        }
+      }
+    },
+    "Select files from the same folder to zip.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择同一文件夹中的文件再压缩。"
+          }
+        }
+      }
+    },
+    "Zip %ld item(s) → %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "压缩 %ld 项 → %@"
+          }
+        }
+      }
+    },
+    "Select a zip file.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择一个 zip 文件。"
+          }
+        }
+      }
+    },
+    "Unzip %ld archive(s)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解压 %ld 个压缩包"
+          }
+        }
+      }
+    },
+    "Select files to duplicate.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择要复制的文件。"
+          }
+        }
+      }
+    },
+    "Duplicate %ld item(s)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "制作 %ld 项的副本"
+          }
+        }
+      }
+    },
+    "Select files to move to Trash.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择要移到废纸篓的文件。"
+          }
+        }
+      }
+    },
+    "Move %ld item(s) to Trash": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将 %ld 项移到废纸篓"
+          }
+        }
+      }
+    },
+    "No folder.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有文件夹。"
+          }
+        }
+      }
+    },
+    "No .%@ files in this folder.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此文件夹中没有 .%@ 文件。"
+          }
+        }
+      }
+    },
+    "Select last .%@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选中最后一个 .%@"
+          }
+        }
+      }
+    },
+    "Select %ld .%@ file(s)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选中 %ld 个 .%@ 文件"
+          }
+        }
+      }
+    },
+    "ffmpeg is not installed. brew install ffmpeg": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未安装 ffmpeg。请运行 brew install ffmpeg"
+          }
+        }
+      }
+    },
+    "%@ is not available.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "找不到 %@。"
+          }
+        }
+      }
+    },
+    "Select at least 2 PDF or image files to merge.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请至少选择 2 个 PDF 或图片再合并。"
+          }
+        }
+      }
+    },
+    "Merge %ld files into %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将 %ld 个文件合并为 %@"
+          }
+        }
+      }
+    },
+    "Select a PDF file to split.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择要拆分的 PDF。"
+          }
+        }
+      }
+    },
+    "Split %@ into individual pages": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将 %@ 按页拆分"
+          }
+        }
+      }
+    },
+    "Select an image or PDF file to extract text.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择图片或 PDF 以提取文字。"
+          }
+        }
+      }
+    },
+    "Extract text (OCR) from %ld file(s)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从 %ld 个文件提取文字（OCR）"
+          }
+        }
+      }
+    },
+    "Select files to rename.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择要重命名的文件。"
+          }
+        }
+      }
+    },
+    "No files needed renaming.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有需要重命名的文件。"
+          }
+        }
+      }
+    },
+    "Rename %ld file(s)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重命名 %ld 个文件"
+          }
+        }
+      }
+    },
+    "No files to organize.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有可整理的文件。"
+          }
+        }
+      }
+    },
+    "Move %ld files into %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将 %ld 个文件移入 %@"
+          }
+        }
+      }
+    },
+    "Trashed %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已移到废纸篓：%@"
+          }
+        }
+      }
+    },
+    "Copied %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已复制 %@"
+          }
+        }
+      }
+    },
+    "Moved %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已移动 %@"
+          }
+        }
+      }
+    },
+    "Copied to clipboard": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已复制到剪贴板"
+          }
+        }
+      }
+    },
+    "Selected %ld item(s)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已选中 %ld 项"
+          }
+        }
+      }
+    },
+    "Opened Terminal": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已打开终端"
+          }
+        }
+      }
+    },
+    "If this file is in iCloud or another cloud drive, keep it on this device and try again.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "如果文件在 iCloud 或其他云盘中，请先在本机保留后再试。"
+          }
+        }
+      }
+    },
+    "Command failed (%ld)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "命令失败（%ld）"
+          }
+        }
+      }
+    },
+    "Cloud file is not downloaded yet: %@. Keep it on this device and try again.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "云端文件尚未下载：%@。请先在本机保留后再试。"
+          }
+        }
+      }
+    },
+    "No valid pages to merge.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有可合并的有效页面。"
+          }
+        }
+      }
+    },
+    "Failed to write merged PDF to %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法把合并后的 PDF 写入 %@"
+          }
+        }
+      }
+    },
+    "Merged %ld files (%ld pages) to %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已将 %ld 个文件（%ld 页）合并为 %@"
+          }
+        }
+      }
+    },
+    "Cannot open PDF: %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法打开 PDF：%@"
+          }
+        }
+      }
+    },
+    "PDF has only 1 page, no split needed.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDF 只有 1 页，无需拆分。"
+          }
+        }
+      }
+    },
+    "Split %@ into %ld pages": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已将 %@ 拆成 %ld 页"
+          }
+        }
+      }
+    },
+    "No text recognized in selected file(s).": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选中的文件里没有识别到文字。"
+          }
+        }
+      }
+    },
+    "OCR copied to clipboard (%ld chars): \"%@…\"": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文字已复制到剪贴板（%ld 字）：「%@…」"
+          }
+        }
+      }
+    },
+    "Refuses to touch %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拒绝碰触 %@"
+          }
+        }
+      }
+    },
+    "Unlisted executable %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未允许的可执行文件 %@"
+          }
+        }
+      }
+    },
+    "Network tool %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "联网工具 %@"
+          }
+        }
+      }
+    },
+    "Shell or script interpreter %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shell 或脚本解释器 %@"
+          }
+        }
+      }
+    },
+    "Path outside folder: %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "路径超出当前文件夹：%@"
+          }
+        }
+      }
+    },
+    "Would overwrite existing files": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "会覆盖已有文件"
+          }
+        }
+      }
+    },
+    "Blocked pattern: %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已拦截：%@"
+          }
+        }
+      }
+    },
+    "Blocked pattern: sudo": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已拦截：sudo"
+          }
+        }
+      }
+    },
+    "Blocked pattern: download|shell": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已拦截：下载并执行脚本"
+          }
+        }
+      }
+    },
+    "Missing path": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缺少路径"
+          }
+        }
+      }
+    },
+    "Path is outside the Finder folder": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "路径在访达文件夹之外"
+          }
+        }
+      }
+    },
+    "Not found: %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "找不到：%@"
+          }
+        }
+      }
+    },
+    "Not UTF-8 text": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不是 UTF-8 文本"
+          }
+        }
+      }
+    },
+    "Trash %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移到废纸篓 %@"
+          }
+        }
+      }
+    },
+    "Move %ld file(s)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移动 %ld 个文件"
+          }
+        }
+      }
+    },
+    "Reveal %ld item(s)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在访达中显示 %ld 项"
+          }
+        }
+      }
+    },
+    "Nothing to undo": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有可撤销的操作"
+          }
+        }
+      }
+    },
+    "Undid: %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已撤销：%@"
+          }
+        }
+      }
+    },
+    "Undo partially failed: %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "撤销未全部完成：%@"
+          }
+        }
+      }
+    },
+    "Already running": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已有任务在运行"
+          }
+        }
+      }
+    },
+    "Agent stopped after too many steps.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent 步数过多，已停止。"
+          }
+        }
+      }
+    },
+    "The model did not return a usable command.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "模型没有返回可用的命令。"
+          }
+        }
+      }
+    },
+    "Vendor base URL is invalid.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服务商接口地址无效。"
+          }
+        }
+      }
+    },
+    "The model returned an empty reply.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "模型返回了空回复。"
+          }
+        }
+      }
+    },
+    "Nothing selected.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未选中文件"
+          }
+        }
+      }
+    },
+    "unknown": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知"
+          }
+        }
+      }
+    },
+    "folder": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件夹"
+          }
+        }
+      }
+    },
+    "not text": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不是文本"
+          }
+        }
+      }
+    },
+    "folder/unknown": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件夹/未知"
+          }
+        }
+      }
+    },
+    "n/a": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无"
+          }
+        }
+      }
+    },
+    "%ld words": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%ld 个词"
+          }
+        }
+      }
+    },
+    "%ld chars": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%ld 个字符"
+          }
+        }
+      }
+    },
+    "%ld lines": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%ld 行"
+          }
+        }
+      }
+    },
+    "%ld files are still in place.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还有 %ld 个文件留在原处。"
+          }
+        }
+      }
+    },
+    "No files were changed.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有改动任何文件。"
+          }
+        }
+      }
+    },
+    "Missing query": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缺少查询"
+          }
+        }
+      }
+    },
+    "Not an Instant Action. Use the Understage bar for agent/LLM requests.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这不是 Instant Action。Agent 或模型请求请用 Understage 命令栏。"
+          }
+        }
+      }
+    },
+    "Pass --yes to run.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加上 --yes 才会执行。"
+          }
+        }
+      }
+    },
+    "OK": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成"
+          }
+        }
+      }
+    },
+    "understage — Instant Actions for the current Finder selection (or cwd)\n\n  understage jpg\n  understage --yes zip\n  understage \"select all pdf\"\n\nWithout --yes, prints the plan and exits. LLM/agent commands stay in the app.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "understage — 当前访达选中项（或当前目录）的 Instant Actions\n\n  understage jpg\n  understage --yes zip\n  understage \"select all pdf\"\n\n不加 --yes 只打印计划并退出。模型和 Agent 请求留在 App 里。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

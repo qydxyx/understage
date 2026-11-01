@@ -43,6 +43,22 @@ final class AgentParserTests: XCTestCase {
         )
         XCTAssertFalse(partial.ok)
         XCTAssertTrue(partial.text.contains("40"))
+        let conversion = AgentFinish.result(
+            query: "markdown",
+            summary: "Converted report.pdf",
+            mutated: true,
+            filesLeft: 40
+        )
+        XCTAssertTrue(conversion.ok)
+    }
+
+    func testPromptKeepsNewFilesBesideTheSource() {
+        let selected = [SelectedItem(url: URL(fileURLWithPath: "/tmp/report.pdf"), name: "report.pdf", isDirectory: false)]
+        let text = CommandGenerator.userPrompt(query: "markdown", folder: URL(fileURLWithPath: "/tmp"), selected: selected)
+        XCTAssertTrue(text.contains("Change only these files"))
+        XCTAssertTrue(text.contains("Do not move or reorganize anything else"))
+        let prompt = AgentParser.systemPrompt(skills: "", chinese: true)
+        XCTAssertTrue(prompt.contains("Do not create a folder unless the request asks for one"))
     }
 
     func testJoinCollapsesDoubleSlash() throws {

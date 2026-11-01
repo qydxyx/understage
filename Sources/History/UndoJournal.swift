@@ -70,7 +70,7 @@ final class UndoJournal: ObservableObject {
 
     func undoLast() -> String {
         guard let batch = batches.first else {
-            return String(localized: "Nothing to undo")
+            return L10n.tr("Nothing to undo")
         }
         let outcome = Self.apply(batch.actions)
         if outcome.remaining.isEmpty {
@@ -80,9 +80,9 @@ final class UndoJournal: ObservableObject {
         }
         save()
         if outcome.errors.isEmpty {
-            return String(localized: "Undid: \(batch.summary)")
+            return L10n.format("Undid: %@", batch.summary)
         }
-        return String(localized: "Undo partially failed: \(outcome.errors.joined(separator: "; "))")
+        return L10n.format("Undo partially failed: %@", outcome.errors.joined(separator: "; "))
     }
 
     /// Applies actions from last to first. Actions that throw stay in `remaining`.

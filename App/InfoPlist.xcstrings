@@ -1,0 +1,23 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSAppleEventsUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Understage reads the current Finder folder and selected files so the command bar can act on them."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Understage 会读取当前访达文件夹和选中的文件，命令栏才能对它们进行操作。"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

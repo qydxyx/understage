@@ -11,7 +11,7 @@ enum UnderstageCLI {
         let yes = args.contains("--yes") || args.contains("-y")
         let query = args.filter { $0 != "--yes" && $0 != "-y" }.joined(separator: " ")
         guard !query.isEmpty else {
-            fputs("Missing query\n", stderr)
+            fputs(L10n.tr("Missing query") + "\n", stderr)
             exit(2)
         }
 
@@ -24,7 +24,7 @@ enum UnderstageCLI {
         }
 
         guard let action = InstantParser.parse(query) else {
-            fputs("Not an Instant Action. Use the Understage bar for agent/LLM requests.\n", stderr)
+            fputs(L10n.tr("Not an Instant Action. Use the Understage bar for agent/LLM requests.") + "\n", stderr)
             exit(3)
         }
 
@@ -54,7 +54,7 @@ enum UnderstageCLI {
         for trashed in plan.trashes { print("  - \(trashed.path)") }
 
         if !yes {
-            print("Pass --yes to run.")
+            print(L10n.tr("Pass --yes to run."))
             exit(0)
         }
 
@@ -62,12 +62,12 @@ enum UnderstageCLI {
         let outcome = await CommandRunner.run(plan, session: CommandRunner.Session())
         switch outcome {
         case .success(let text):
-            print(text.isEmpty ? "OK" : text)
+            print(text.isEmpty ? L10n.tr("OK") : text)
         case .failure(let text):
             fputs(text + "\n", stderr)
             exit(1)
         case .cancelled:
-            fputs("Cancelled\n", stderr)
+            fputs(L10n.tr("Cancelled") + "\n", stderr)
             exit(1)
         }
     }
@@ -83,13 +83,15 @@ enum UnderstageCLI {
         }
     }
 
-    static let usage = """
-    understage — Instant Actions for the current Finder selection (or cwd)
+    static var usage: String {
+        L10n.tr("""
+        understage — Instant Actions for the current Finder selection (or cwd)
 
-      understage jpg
-      understage --yes zip
-      understage "select all pdf"
+          understage jpg
+          understage --yes zip
+          understage "select all pdf"
 
-    Without --yes, prints the plan and exits. LLM/agent commands stay in the app.
-    """
+        Without --yes, prints the plan and exits. LLM/agent commands stay in the app.
+        """)
+    }
 }

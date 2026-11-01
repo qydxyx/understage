@@ -22,14 +22,14 @@ enum Ideas {
                 Idea(title: "JPEG", query: "jpg"),
                 Idea(title: "PNG", query: "png"),
                 Idea(title: "OCR", query: "ocr"),
-                Idea(title: "Zip", query: "zip"),
-                Idea(title: "Resolution", query: "resolution"),
+                Idea(title: L10n.tr("Zip"), query: "zip"),
+                Idea(title: L10n.tr("Resolution"), query: "resolution"),
             ])
         }
         if hasVideo {
             ideas.append(contentsOf: [
                 Idea(title: "1080p", query: "1080p"),
-                Idea(title: "Extract audio", query: "extract audio"),
+                Idea(title: L10n.tr("Extract audio"), query: "extract audio"),
                 Idea(title: "GIF", query: "gif"),
             ])
         }
@@ -37,36 +37,36 @@ enum Ideas {
             ideas.append(Idea(title: "WAV", query: "wav"))
         }
         if hasZip {
-            ideas.append(Idea(title: "Unzip", query: "unzip"))
+            ideas.append(Idea(title: L10n.tr("Unzip"), query: "unzip"))
         }
         if hasPDF {
             ideas.append(contentsOf: [
-                Idea(title: "Split PDF", query: "split pdf"),
+                Idea(title: L10n.tr("Split PDF"), query: "split pdf"),
                 Idea(title: "OCR", query: "ocr"),
-                Idea(title: "Select all PDFs", query: "select all pdf"),
+                Idea(title: L10n.tr("Select all PDFs"), query: "select all pdf"),
             ])
         }
         if selected.count > 1 && (hasPDF || hasImages) {
-            ideas.append(Idea(title: "Merge to PDF", query: "merge pdf"))
+            ideas.append(Idea(title: L10n.tr("Merge to PDF"), query: "merge pdf"))
         }
         if hasText {
-            ideas.append(Idea(title: "Word count", query: "word count"))
+            ideas.append(Idea(title: L10n.tr("Word count"), query: "word count"))
         }
         if selected.count > 1 {
             ideas.append(contentsOf: [
-                Idea(title: "Number 1 2 3", query: "1 2 3"),
-                Idea(title: "Date prefix", query: "date prefix"),
-                Idea(title: "Zip selection", query: "zip"),
+                Idea(title: L10n.tr("Number 1 2 3"), query: "1 2 3"),
+                Idea(title: L10n.tr("Date prefix"), query: "date prefix"),
+                Idea(title: L10n.tr("Zip selection"), query: "zip"),
             ])
         }
         if folder != nil {
             ideas.append(contentsOf: [
-                Idea(title: "Copy path", query: "copy path"),
-                Idea(title: "Terminal", query: "term"),
+                Idea(title: L10n.tr("Copy path"), query: "copy path"),
+                Idea(title: L10n.tr("Terminal"), query: "term"),
             ])
         }
         if !selected.isEmpty {
-            ideas.append(Idea(title: "Duplicate", query: "duplicate"))
+            ideas.append(Idea(title: L10n.tr("Duplicate"), query: "duplicate"))
         }
         for favorite in favorites.prefix(5) {
             if !ideas.contains(where: { $0.query == favorite.query }) {

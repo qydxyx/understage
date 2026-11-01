@@ -82,12 +82,14 @@ enum AgentParser {
         {"tool":"ask_user","question":"...","options":["choice A","choice B"]}
         {"tool":"done","summary":"..."}
         Rules:
+        - Do only what this request asks. Do not tidy, sort, rename, or move anything else.
+        - If files are selected, change only those files.
+        - Write new files in the same directory as the source. Do not create a folder unless the request asks for one.
+        - A folder listing is reference. It is not a request to reorganize that folder.
         - Stay inside the Finder folder and selected paths.
-        - Inspect or list before bulk organize.
         - When a choice is required, call ask_user with 2 to 4 short options.
-        - Put every file move in ONE move call. Never move one file per turn.
-        - Do not call reveal while moving. The open Finder window already shows the folder.
-        - Move or run before done. Never say files were organized if you only listed them.
+        - Move only when the user asked to move or organize. Then put every requested move in ONE move call.
+        - Do not call reveal.
         - Never sudo, never rm -rf, never overwrite; unique names.
         - Prefer sips/ffmpeg/ditto/zip/textutil.
         \(extras)
@@ -98,13 +100,15 @@ enum AgentParser {
 enum AgentFinish {
     static func result(query: String, summary: String, mutated: Bool, filesLeft: Int = 0) -> (ok: Bool, text: String) {
         let body = summary.trimmingCharacters(in: .whitespacesAndNewlines)
-        let chinese = query.contains(where: \.isCJK)
+        let chinese = L10n.prefersChinese(for: query)
         if asksForChange(query), filesLeft > 0 {
-            let note = chinese ? "还有 \(filesLeft) 个文件留在原处。" : "\(filesLeft) files are still in place."
+            let note = chinese
+                ? "还有 \(filesLeft) 个文件留在原处。"
+                : L10n.format("%ld files are still in place.", filesLeft)
             return (false, body.isEmpty ? note : "\(note) \(body)")
         }
         if asksForChange(query), !mutated {
-            let note = chinese ? "没有改动任何文件。" : "No files were changed."
+            let note = chinese ? "没有改动任何文件。" : L10n.tr("No files were changed.")
             return (false, body.isEmpty ? note : "\(note) \(body)")
         }
         return (true, body.isEmpty ? summary : body)
@@ -114,12 +118,5 @@ enum AgentFinish {
         let lower = query.lowercased()
         let words = ["sort", "move", "organiz", "rename", "archive", "整理", "分类", "分门", "归档", "移动", "重命名"]
         return words.contains { lower.contains($0) }
-    }
-}
-
-private extension Character {
-    var isCJK: Bool {
-        guard let scalar = unicodeScalars.first else { return false }
-        return (0x4E00 ... 0x9FFF).contains(scalar.value)
     }
 }

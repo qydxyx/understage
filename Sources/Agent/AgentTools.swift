@@ -8,9 +8,9 @@ enum AgentTools {
 
         var errorDescription: String? {
             switch self {
-            case .missingPath: "Missing path"
-            case .outsideWorkspace: "Path is outside the Finder folder"
-            case .notFound(let path): "Not found: \(path)"
+            case .missingPath: L10n.tr("Missing path")
+            case .outsideWorkspace: L10n.tr("Path is outside the Finder folder")
+            case .notFound(let path): L10n.format("Not found: %@", path)
             }
         }
     }
@@ -55,7 +55,7 @@ enum AgentTools {
     static func readText(path: URL, limit: Int = 4000) throws -> String {
         guard FileManager.default.fileExists(atPath: path.path) else { throw ToolError.notFound(path.path) }
         guard let text = try? String(contentsOf: path, encoding: .utf8) else {
-            return "Not UTF-8 text"
+            return L10n.tr("Not UTF-8 text")
         }
         if text.count <= limit { return text }
         return String(text.prefix(limit)) + "\n…"
@@ -89,7 +89,7 @@ enum AgentTools {
             let url = try resolve(call.path, folder: folder, selected: selected)
             var plan = CommandPlan(
                 query: query,
-                summary: call.summary.isEmpty ? "Trash \(url.lastPathComponent)" : call.summary,
+                summary: call.summary.isEmpty ? L10n.format("Trash %@", url.lastPathComponent) : call.summary,
                 steps: [.trash(url)],
                 creates: [],
                 trashes: [url],
@@ -114,7 +114,7 @@ enum AgentTools {
                 let to = try resolve(pair.to, folder: folder, selected: selected)
                 steps.append(.move(from: from, to: to))
             }
-            let summary = call.summary.isEmpty ? "Move \(steps.count) file(s)" : call.summary
+            let summary = call.summary.isEmpty ? L10n.format("Move %ld file(s)", steps.count) : call.summary
             var plan = CommandPlan(
                 query: query,
                 summary: summary,
@@ -136,7 +136,7 @@ enum AgentTools {
             }
             return CommandPlan(
                 query: query,
-                summary: "Reveal \(urls.count) item(s)",
+                summary: L10n.format("Reveal %ld item(s)", urls.count),
                 steps: [.select(urls)],
                 creates: [],
                 trashes: [],

@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  macos-app:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Check tag matches MARKETING_VERSION
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          expected=$(awk -F'"' '/MARKETING_VERSION:/ { print $2; exit }' project.yml)
+          if [[ "$version" != "$expected" ]]; then
+            echo "Tag v$version does not match MARKETING_VERSION $expected" >&2
+            exit 1
+          fi
+
+      - name: Package app
+        run: make package
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          dmg="dist/release/Understage-${version}-macOS-arm64.dmg"
+          zip="dist/release/Understage-${version}-macOS-arm64.zip"
+          python3 scripts/release-notes.py "$version" > /tmp/understage-notes.md
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$dmg" "$zip" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$dmg" "$zip" \
+              --title "Understage ${version}" \
+              --notes-file /tmp/understage-notes.md
+          fi

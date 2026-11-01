@@ -79,7 +79,8 @@ enum CommandGenerator {
         executable (absolute path), arguments (array of strings), summary (one line), creates (array of absolute output paths).
         If impossible, return {"error":"reason"}.
         Rules:
-        - Use only the provided absolute file paths.
+        - Use only the provided absolute file paths. Do not touch any other file.
+        - Write outputs in the same directory as the source. Do not move the source into a new folder.
         - Prefer /usr/bin/sips, /usr/bin/afconvert, /usr/bin/textutil, /usr/bin/ditto, /usr/bin/zip, /opt/homebrew/bin/ffmpeg, /usr/bin/mdls.
         - Never sudo, never rm -rf, never write ~/.ssh or /etc, never pipe curl to a shell.
         - Do not overwrite; pick a new filename if the destination exists.
@@ -96,12 +97,14 @@ enum CommandGenerator {
         }
         if selected.isEmpty {
             lines.append("Selected: (none)")
+            lines.append("Do not modify files this request does not name.")
         } else {
             lines.append("Selected:")
             for item in selected.prefix(30) {
                 let kind = item.isDirectory ? "dir" : "file"
                 lines.append("- \(kind)\t\(item.url.path)")
             }
+            lines.append("Change only these files. Write new files beside them. Do not move or reorganize anything else.")
         }
         if let listing, !listing.isEmpty {
             lines.append("Folder contents:")
@@ -132,7 +135,7 @@ enum CommandGenerator {
 
         var errorDescription: String? {
             switch self {
-            case .unparsed: String(localized: "The model did not return a usable command.")
+            case .unparsed: L10n.tr("The model did not return a usable command.")
             case .model(let message): message
             }
         }

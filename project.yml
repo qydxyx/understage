@@ -41,8 +41,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: design.understage.app
         PRODUCT_NAME: Understage
         EXECUTABLE_NAME: Understage
-        MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "1.0.1"
+        CURRENT_PROJECT_VERSION: "101"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Understage
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
@@ -78,6 +78,7 @@ targets:
     platform: macOS
     sources:
       - path: CLI
+      - path: App/Localizable.xcstrings
       - path: Sources/Instant
       - path: Sources/Execute/CommandRunner.swift
       - path: Sources/Execute/ToolDetector.swift
