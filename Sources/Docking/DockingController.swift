@@ -39,6 +39,8 @@ final class DockingController {
     private var refreshPending = false
     private var missingFrameStreak = 0
     private var movingUntil: Date = .distantPast
+    private var dockSettle: [WindowKey: (frame: CGRect, since: Date)] = [:]
+    private var dockApplied: [WindowKey: (frame: CGRect, at: Date)] = [:]
 
     private init() {}
 
@@ -125,10 +127,7 @@ final class DockingController {
         }
         installObserverIfNeeded()
 
-        let ourAppIsActive = NSApp.isActive
         let finderFront = FinderAX.isFinderFrontmost()
-        let barIsKey = panels.values.contains { $0.isKeyWindow }
-        let shouldShow = finderFront || ourAppIsActive || barIsKey
 
         guard appModel.permissions.accessibility else {
             pauseDisplayLink()
@@ -139,16 +138,8 @@ final class DockingController {
             return
         }
 
-        guard shouldShow else {
-            pauseDisplayLink()
-            hideAll()
-            if appModel.trackedWindowCount != 0 {
-                appModel.trackedWindowCount = 0
-            }
-            return
-        }
-
         let axWindows = FinderAX.windows().filter { !$0.isMinimized }
+        let onScreenIDs = onScreenFinderWindowIDs()
         refreshScriptingIfNeeded()
 
         var desired: [WindowKey: StageContext] = [:]
@@ -156,6 +147,12 @@ final class DockingController {
         var consumed = Set<WindowKey>()
         let frontIndex = frontWindowIndex(in: axWindows)
         for (index, window) in axWindows.enumerated() {
+            if case .cgWindow(let id) = window.key, !onScreenIDs.isEmpty, !onScreenIDs.contains(id) {
+                continue
+            }
+            if case .fallback = window.key, !finderFront {
+                continue
+            }
             let key = stableKey(for: window, consumed: consumed)
             consumed.insert(key)
             let folder = window.documentURL
@@ -181,7 +178,16 @@ final class DockingController {
         }
         axElements = elements
 
-        if axWindows.isEmpty && finderFront {
+        if desired.isEmpty && !finderFront {
+            pauseDisplayLink()
+            hideAll()
+            if appModel.trackedWindowCount != 0 {
+                appModel.trackedWindowCount = 0
+            }
+            return
+        }
+
+        if desired.isEmpty && finderFront {
             if let screen = NSScreen.main {
                 let folder = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Desktop")
                 desired[.desktop] = StageContext(
@@ -212,7 +218,7 @@ final class DockingController {
             } else {
                 panel.model.context = context
             }
-            place(panel, under: context.cocoaFrame, desktop: context.isDesktop)
+            place(panel, under: context.cocoaFrame, desktop: context.isDesktop, key: key, element: elements[key])
         }
 
         if appModel.trackedWindowCount != desired.count {
@@ -240,7 +246,7 @@ final class DockingController {
                     axPosition: cgRect.origin,
                     axSize: cgRect.size
                 )
-                if place(panel, under: cocoa, desktop: false) {
+                if place(panel, under: cocoa, desktop: false, key: key, element: axElements[key]) {
                     movingUntil = Date().addingTimeInterval(0.2)
                 }
             case .desktop:
@@ -253,7 +259,7 @@ final class DockingController {
                       let size = AXAttr.size(element, "AXSize")
                 else { continue }
                 let cocoa = AXGeometry.cocoaRect(axPosition: position, axSize: size)
-                if place(panel, under: cocoa, desktop: false) {
+                if place(panel, under: cocoa, desktop: false, key: key, element: element) {
                     movingUntil = Date().addingTimeInterval(0.2)
                 }
             }
@@ -270,16 +276,85 @@ final class DockingController {
     }
 
     @discardableResult
-    private func place(_ panel: StageBarPanel, under window: CGRect, desktop: Bool) -> Bool {
+    private func place(
+        _ panel: StageBarPanel,
+        under window: CGRect,
+        desktop: Bool,
+        key: WindowKey,
+        element: AXUIElement?
+    ) -> Bool {
         let screen = AXGeometry.screen(containing: window) ?? NSScreen.main
         guard let screen else { return false }
         let height = panel.model.barHeight
+        let host = desktop
+            ? window
+            : windowClearingDock(key: key, element: element, window: window, screen: screen, barHeight: height)
         let frame = desktop
             ? BarPlacement.desktopBarFrame(on: screen, height: height)
-            : BarPlacement.frame(forWindow: window, on: screen, height: height)
+            : BarPlacement.frame(forWindow: host, on: screen, height: height)
         let moved = abs(panel.frame.minX - frame.minX) > 0.5 || abs(panel.frame.minY - frame.minY) > 0.5
         panel.place(frame: frame)
         return moved
+    }
+
+    /// When the bar would cover the Dock, shorten the Finder window from the
+    /// bottom once the frame has sat still. Returns the window rect the bar
+    /// should follow, which may be the size just requested.
+    private func windowClearingDock(
+        key: WindowKey,
+        element: AXUIElement?,
+        window: CGRect,
+        screen: NSScreen,
+        barHeight: CGFloat
+    ) -> CGRect {
+        guard let target = BarPlacement.windowClearingDock(
+            window: window,
+            visible: screen.visibleFrame,
+            height: barHeight,
+            overlap: BarPlacement.overlap
+        ) else {
+            dockSettle[key] = nil
+            dockApplied[key] = nil
+            return window
+        }
+        if let applied = dockApplied[key] {
+            if framesClose(window, applied.frame) {
+                dockApplied[key] = nil
+                dockSettle[key] = nil
+                return window
+            }
+            if Date().timeIntervalSince(applied.at) < 1 {
+                return applied.frame
+            }
+            dockApplied[key] = nil
+        }
+        guard let element, AXAttr.bool(element, "AXFullScreen") != true else { return window }
+        let now = Date()
+        if let settle = dockSettle[key], framesClose(settle.frame, window) {
+            guard now.timeIntervalSince(settle.since) >= 0.2 else { return window }
+        } else {
+            dockSettle[key] = (window, now)
+            return window
+        }
+        guard FinderAX.setCocoaFrame(element, target) else {
+            dockSettle[key] = (window, now)
+            return window
+        }
+        dockApplied[key] = (target, now)
+        dockSettle[key] = (target, now)
+        return target
+    }
+
+    private func framesClose(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
+        abs(lhs.minX - rhs.minX) < 2
+            && abs(lhs.minY - rhs.minY) < 2
+            && abs(lhs.width - rhs.width) < 2
+            && abs(lhs.height - rhs.height) < 2
+    }
+
+    private func onScreenFinderWindowIDs() -> Set<UInt32> {
+        guard let pid = FinderAX.finderPID else { return [] }
+        return Set(CGWindowFrames.onScreen(ownerPID: pid).keys.map { UInt32($0) })
     }
 
     private func showOnboardingBar() {

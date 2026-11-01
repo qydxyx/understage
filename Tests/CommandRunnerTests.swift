@@ -259,7 +259,7 @@ final class CommandRunnerTests: XCTestCase {
             .appendingPathComponent("understage-org-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
-        for name in ["one.pdf", "two.pdf", "note.docx", "clip.mp4", "readme"] {
+        for name in ["one.pdf", "two.pdf", "note.docx", "clip.mp4", "photo.jpg", "readme"] {
             try "x".write(to: dir.appendingPathComponent(name), atomically: true, encoding: .utf8)
         }
         try FileManager.default.createDirectory(at: dir.appendingPathComponent("Keep"), withIntermediateDirectories: true)
@@ -273,24 +273,25 @@ final class CommandRunnerTests: XCTestCase {
             folder: dir,
             tools: .system
         )
-        XCTAssertEqual(plan.steps.count, 5)
+        XCTAssertEqual(plan.steps.count, 6)
         XCTAssertFalse(plan.autoRun)
         let report = await CommandRunner.runWithUndo(plan, session: CommandRunner.Session())
         guard case .success = report.outcome else {
             return XCTFail("expected success, got \(report.outcome)")
         }
-        XCTAssertEqual(report.undos.count, 5)
+        XCTAssertEqual(report.undos.count, 6)
         let root = try FileManager.default.contentsOfDirectory(atPath: dir.path)
         XCTAssertFalse(root.contains("one.pdf"))
         XCTAssertFalse(root.contains("note.docx"))
         XCTAssertFalse(root.contains("clip.mp4"))
         XCTAssertFalse(root.contains("readme"))
         XCTAssertTrue(root.contains("Keep"))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("PDF/one.pdf").path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("PDF/two.pdf").path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("DOCX/note.docx").path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("MP4/clip.mp4").path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("Other/readme").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("文档/one.pdf").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("文档/two.pdf").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("文档/note.docx").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("视频/clip.mp4").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("图片/photo.jpg").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("其他/readme").path))
     }
 
     /// 1×1 gray PNG.

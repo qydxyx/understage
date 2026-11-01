@@ -99,8 +99,8 @@ struct SettingsView: View {
             }
             Section("Auto-run") {
                 Toggle("Read-only commands", isOn: $settings.autoRun.readOnly)
-                Toggle("Create new files", isOn: $settings.autoRun.create)
-                Text("Moves, deletes, overwrites, and network always ask first.")
+                Toggle("File changes that can be undone", isOn: $settings.autoRun.fileChanges)
+                Text("Deletes, overwrites, network, and shell commands still ask first.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

@@ -48,6 +48,7 @@ enum InstantAction: Equatable, Sendable {
     case renameSuffix(String)
     case renameReplace(target: String, replacement: String)
     case organizeByType
+    case encodeHEVC(height: Int?)
 }
 
 enum InstantParser {
@@ -59,6 +60,7 @@ enum InstantParser {
         let compact = stripFiller(lower)
 
         if organizeByTypePhrase(compact) { return .organizeByType }
+        if let hevc = parseHEVC(compact) { return hevc }
         if compact == "1080" || compact == "1080p" { return .scaleVideo(height: 1080) }
         if compact == "720" || compact == "720p" { return .scaleVideo(height: 720) }
         if matches(compact, ["extract audio", "提取音频", "抽音频", "音频提取"]) {
@@ -184,10 +186,20 @@ enum InstantParser {
         aliases.contains { compact == $0 || compact.hasPrefix($0 + " ") || compact.hasSuffix(" " + $0) }
     }
 
+    /// `hevc 720p` and `h265` are transcodes. A bare `720p` stays a scale.
+    private static func parseHEVC(_ compact: String) -> InstantAction? {
+        let hevc = compact.contains("hevc") || compact.contains("h265") || compact.contains("h.265")
+        guard hevc else { return nil }
+        if compact.contains("1080") { return .encodeHEVC(height: 1080) }
+        if compact.contains("720") { return .encodeHEVC(height: 720) }
+        return .encodeHEVC(height: nil)
+    }
+
     private static func organizeByTypePhrase(_ compact: String) -> Bool {
         let phrases = [
             "by type", "by file type", "according to type", "according to their type",
             "按类型", "按文件类型", "根据类型", "根据文件类型", "按扩展名", "分门别类",
+            "不同类型", "不同的文件夹", "different folders",
         ]
         return phrases.contains { compact.contains($0) }
     }

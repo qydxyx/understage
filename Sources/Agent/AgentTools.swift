@@ -103,15 +103,25 @@ enum AgentTools {
             plan.autoRun = AutoRunPolicy.allows(prediction, settings: autoRun)
             return plan
         case .move:
-            let from = try resolve(call.from, folder: folder, selected: selected)
-            let to = try resolve(call.to, folder: folder, selected: selected)
+            var pairs = call.moves
+            if pairs.isEmpty, let from = call.from, let to = call.to {
+                pairs = [AgentMove(from: from, to: to)]
+            }
+            guard !pairs.isEmpty else { throw ToolError.missingPath }
+            var steps: [PlanStep] = []
+            for pair in pairs {
+                let from = try resolve(pair.from, folder: folder, selected: selected)
+                let to = try resolve(pair.to, folder: folder, selected: selected)
+                steps.append(.move(from: from, to: to))
+            }
+            let summary = call.summary.isEmpty ? "Move \(steps.count) file(s)" : call.summary
             var plan = CommandPlan(
                 query: query,
-                summary: call.summary.isEmpty ? "Move \(from.lastPathComponent)" : call.summary,
-                steps: [.move(from: from, to: to)],
-                creates: [to],
+                summary: summary,
+                steps: steps,
+                creates: [],
                 trashes: [],
-                reveal: [to],
+                reveal: [],
                 autoRun: false
             )
             let prediction = Predictor.analyze(plan: plan, folder: folder, selected: selected)

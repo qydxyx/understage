@@ -370,7 +370,7 @@ final class StageBarModel: ObservableObject {
                     )
                     if !finished.ok, rejectedDone < 2 {
                         rejectedDone += 1
-                        var note = "ERROR: \(finished.text) Do not call done. Next JSON must move every remaining file, using absolute paths."
+                        var note = "ERROR: \(finished.text) Do not call done. Next JSON must be one move call whose moves array contains every remaining file."
                         if let folder = context?.folderURL, let listing = try? AgentTools.list(path: folder) {
                             note += "\nFolder contents:\n\(listing)"
                         }
@@ -407,7 +407,11 @@ final class StageBarModel: ObservableObject {
                         continue
                     }
                     if plan.autoRun {
-                        let text = await execute(plan)
+                        var text = await execute(plan)
+                        if call.tool == .move, plan.steps.count < 2, looseFilesLeft() > 0 {
+                            let left = looseFilesLeft()
+                            text += "\nMORE_FILES: \(left) files remain. Reply with ONE move whose moves array includes every remaining file. Do not move one file per turn."
+                        }
                         agentMessages.append(ChatMessage(role: .user, content: "TOOL_RESULT:\n\(text)"))
                         continue
                     }
@@ -417,7 +421,9 @@ final class StageBarModel: ObservableObject {
                     return
                 }
             }
-            phase = .result(ok: false, text: String(localized: "Agent stopped after too many steps."))
+            let stopped = String(localized: "Agent stopped after too many steps.")
+            phase = .result(ok: false, text: stopped)
+            TaskHistory.shared.record(query: agentQuery, summary: stopped, ok: false)
         } catch {
             if Task.isCancelled { return }
             phase = .result(ok: false, text: error.localizedDescription)

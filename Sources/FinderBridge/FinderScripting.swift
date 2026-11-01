@@ -88,6 +88,8 @@ enum FinderScripting {
         return dw * dw + dh * dh
     }
 
+    /// Select only items already shown in the front Finder window.
+    /// `select` of a file in another folder opens a new window.
     static func select(_ urls: [URL]) {
         guard !urls.isEmpty else { return }
         let list = urls.map { url in
@@ -98,7 +100,19 @@ enum FinderScripting {
         }.joined(separator: ", ")
         let source = """
         tell application "Finder"
-            select {\(list)}
+            if (count of Finder windows) is 0 then return
+            set destPath to POSIX path of (target of front Finder window as alias)
+            if destPath does not end with "/" then set destPath to destPath & "/"
+            set chosen to {}
+            repeat with f in {\(list)}
+                try
+                    set parentPath to POSIX path of (container of f as alias)
+                    if parentPath does not end with "/" then set parentPath to parentPath & "/"
+                    if parentPath is destPath then set end of chosen to contents of f
+                end try
+            end repeat
+            if (count of chosen) is 0 then return
+            select chosen
         end tell
         """
         _ = runAppleScript(source)

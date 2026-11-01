@@ -82,7 +82,7 @@ enum CommandRunner {
             for arg in arguments {
                 try await ensureDownloadedIfNeeded(arg)
             }
-            let log = try await runProcess(executable, arguments, cwd: cwd, session: session)
+            let log = try await runProcess(ToolDetector.resolve(executable), arguments, cwd: cwd, session: session)
             return (log, [])
         case .trash(let url):
             try await ensureDownloadedIfNeeded(url)

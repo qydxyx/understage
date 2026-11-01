@@ -45,7 +45,7 @@ enum CommandGenerator {
         var plan = CommandPlan(
             query: query,
             summary: generated.summary,
-            steps: [.process(executable: generated.executable, arguments: generated.arguments)],
+            steps: [.process(executable: ToolDetector.resolve(generated.executable), arguments: generated.arguments)],
             creates: generated.creates,
             trashes: [],
             reveal: generated.creates,

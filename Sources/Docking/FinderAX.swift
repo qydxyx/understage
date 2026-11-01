@@ -42,6 +42,22 @@ enum FinderAX {
         }
     }
 
+    /// Move a Finder window without changing its top edge. Accessibility
+    /// position is the top-left corner, so the size change alone would also
+    /// do this; the position write keeps the top put if size anchors elsewhere.
+    @discardableResult
+    static func setCocoaFrame(_ element: AXUIElement, _ rect: CGRect) -> Bool {
+        let primary = AXGeometry.primaryScreenHeight()
+        var position = CGPoint(x: rect.minX, y: primary - rect.maxY)
+        var size = rect.size
+        guard let posValue = AXValueCreate(.cgPoint, &position),
+              let sizeValue = AXValueCreate(.cgSize, &size)
+        else { return false }
+        let sizeOK = AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeValue) == .success
+        let posOK = AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, posValue) == .success
+        return sizeOK && posOK
+    }
+
     static func focusedWindow() -> AXFinderWindow? {
         guard let app = applicationElement() else { return nil }
         if let focused: AXUIElement = AXAttr.copy(app, "AXFocusedWindow"),

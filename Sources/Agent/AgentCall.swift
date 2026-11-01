@@ -1,5 +1,10 @@
 import Foundation
 
+struct AgentMove: Equatable, Sendable {
+    var from: String
+    var to: String
+}
+
 struct AgentCall: Equatable, Sendable {
     enum Tool: String, Equatable, Sendable {
         case list, inspect, readText = "read_text", run, trash, reveal, move, done, askUser = "ask_user"
@@ -16,6 +21,7 @@ struct AgentCall: Equatable, Sendable {
     var to: String?
     var question: String?
     var options: [String] = []
+    var moves: [AgentMove] = []
 }
 
 enum AgentParser {
@@ -30,6 +36,13 @@ enum AgentParser {
         }
         let creates = (json["creates"] as? [String] ?? []).map { URL(fileURLWithPath: $0) }
         let paths = json["paths"] as? [String] ?? []
+        let moves = (json["moves"] as? [[String: Any]] ?? []).compactMap { row -> AgentMove? in
+            guard let from = row["from"] as? String, let to = row["to"] as? String else { return nil }
+            let trimmedFrom = from.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedTo = to.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedFrom.isEmpty, !trimmedTo.isEmpty else { return nil }
+            return AgentMove(from: trimmedFrom, to: trimmedTo)
+        }
         return AgentCall(
             tool: tool,
             summary: (json["summary"] as? String) ?? name,
@@ -43,7 +56,8 @@ enum AgentParser {
             question: json["question"] as? String,
             options: (json["options"] as? [String] ?? [])
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
+                .filter { !$0.isEmpty },
+            moves: moves
         )
     }
 
@@ -62,7 +76,7 @@ enum AgentParser {
         {"tool":"inspect","path":"/abs/file"}
         {"tool":"read_text","path":"/abs/file"}
         {"tool":"run","executable":"/usr/bin/sips","arguments":["..."],"creates":["/abs/out"],"summary":"..."}
-        {"tool":"move","from":"/abs/a","to":"/abs/b","summary":"..."}
+        {"tool":"move","moves":[{"from":"/abs/a","to":"/abs/Folder/a"},{"from":"/abs/b","to":"/abs/Folder/b"}],"summary":"..."}
         {"tool":"trash","path":"/abs/file"}
         {"tool":"reveal","paths":["/abs/file"]}
         {"tool":"ask_user","question":"...","options":["choice A","choice B"]}
@@ -71,6 +85,8 @@ enum AgentParser {
         - Stay inside the Finder folder and selected paths.
         - Inspect or list before bulk organize.
         - When a choice is required, call ask_user with 2 to 4 short options.
+        - Put every file move in ONE move call. Never move one file per turn.
+        - Do not call reveal while moving. The open Finder window already shows the folder.
         - Move or run before done. Never say files were organized if you only listed them.
         - Never sudo, never rm -rf, never overwrite; unique names.
         - Prefer sips/ffmpeg/ditto/zip/textutil.

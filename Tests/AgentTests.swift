@@ -88,6 +88,23 @@ final class AgentToolsTests: XCTestCase {
         XCTAssertTrue(listing.contains("a.txt"))
     }
 
+    func testMoveBatchIsOnePlan() throws {
+        let call = try AgentParser.parse(
+            #"{"tool":"move","summary":"by type","moves":[{"from":"/tmp/understage-ws/a.txt","to":"/tmp/understage-ws/TXT/a.txt"},{"from":"/tmp/understage-ws/b.pdf","to":"/tmp/understage-ws/PDF/b.pdf"}]}"#
+        )
+        XCTAssertEqual(call.moves.count, 2)
+        let plan = try AgentTools.plan(
+            from: call,
+            query: "整理",
+            folder: URL(fileURLWithPath: "/tmp/understage-ws"),
+            selected: [],
+            autoRun: .init()
+        )
+        XCTAssertEqual(plan.steps.count, 2)
+        XCTAssertTrue(plan.reveal.isEmpty)
+        XCTAssertTrue(plan.autoRun)
+    }
+
     func testMovePlanStaysInFolder() throws {
         let dir = URL(fileURLWithPath: "/tmp/understage-ws")
         let call = AgentCall(
@@ -107,9 +124,9 @@ final class AgentToolsTests: XCTestCase {
             query: "rename",
             folder: dir,
             selected: [],
-            autoRun: AutoRunSettings(readOnly: true, create: false)
+            autoRun: AutoRunSettings(readOnly: true, fileChanges: true)
         )
-        XCTAssertFalse(plan.autoRun)
+        XCTAssertTrue(plan.autoRun)
         guard case .move(let from, let to) = plan.steps.first else {
             return XCTFail("expected move")
         }

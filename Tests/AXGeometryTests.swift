@@ -45,11 +45,28 @@ final class AXGeometryTests: XCTestCase {
         XCTAssertFalse(a.sameContent(as: b))
     }
 
-    func testBarOverlaysWindowWhenBelowWouldClip() {
+    func testBarStaysAboveTheDockWhenTheWindowIsFlush() {
         let window = CGRect(x: 40, y: 40, width: 900, height: 700)
         let visible = CGRect(x: 0, y: 40, width: 1440, height: 860)
         let frame = BarPlacement.frame(window: window, visible: visible, height: 52, overlap: 1)
-        XCTAssertEqual(frame.minY, 44)
+        XCTAssertEqual(frame.minY, 40)
+        XCTAssertEqual(frame.height, 52)
+    }
+
+    func testWindowShrinksFromTheBottomToClearTheDock() {
+        let window = CGRect(x: 40, y: 40, width: 900, height: 700)
+        let visible = CGRect(x: 0, y: 40, width: 1440, height: 860)
+        let shrunk = BarPlacement.windowClearingDock(window: window, visible: visible, height: 52, overlap: 1)
+        XCTAssertEqual(shrunk, CGRect(x: 40, y: 91, width: 900, height: 649))
+        let parked = BarPlacement.frame(window: shrunk!, visible: visible, height: 52, overlap: 1)
+        XCTAssertEqual(parked.minY, 40)
+        XCTAssertEqual(parked.maxY, 92)
+    }
+
+    func testWindowIsNotShrunkWhenTheBarAlreadyFits() {
+        let window = CGRect(x: 40, y: 200, width: 900, height: 500)
+        let visible = CGRect(x: 0, y: 40, width: 1440, height: 860)
+        XCTAssertNil(BarPlacement.windowClearingDock(window: window, visible: visible, height: 52, overlap: 1))
     }
 }
 

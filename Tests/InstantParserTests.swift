@@ -12,6 +12,8 @@ final class InstantParserTests: XCTestCase {
     }
 
     func testMediaAndInfo() {
+        XCTAssertEqual(InstantParser.parse("hevc 720p"), .encodeHEVC(height: 720))
+        XCTAssertEqual(InstantParser.parse("h265"), .encodeHEVC(height: nil))
         XCTAssertEqual(InstantParser.parse("1080p"), .scaleVideo(height: 1080))
         XCTAssertEqual(InstantParser.parse("convert to 1080p"), .scaleVideo(height: 1080))
         XCTAssertNil(InstantParser.parse("1080p 并抽出音频"))
@@ -29,6 +31,10 @@ final class InstantParserTests: XCTestCase {
         )
         XCTAssertEqual(
             InstantParser.parse("sort the files into different folders according to their type"),
+            .organizeByType
+        )
+        XCTAssertEqual(
+            InstantParser.parse("整理这些文件到不同类型的文件夹中"),
             .organizeByType
         )
         XCTAssertEqual(InstantParser.parse("copy path"), .copyPath)
@@ -106,6 +112,23 @@ final class CommandPlannerTests: XCTestCase {
     private func item(_ path: String, directory: Bool = false) -> SelectedItem {
         let url = URL(fileURLWithPath: path)
         return SelectedItem(url: url, name: url.lastPathComponent, isDirectory: directory)
+    }
+
+    func testHEVC720UsesInstalledFfmpeg() {
+        let plan = CommandPlanner.plan(
+            action: .encodeHEVC(height: 720),
+            query: "hevc 720p",
+            selected: [item("/tmp/clip.mp4")],
+            folder: URL(fileURLWithPath: "/tmp"),
+            tools: tools
+        )
+        XCTAssertNil(plan.error)
+        guard case .process(let exe, let args) = plan.steps.first else {
+            return XCTFail("expected ffmpeg")
+        }
+        XCTAssertEqual(exe, "/opt/homebrew/bin/ffmpeg")
+        XCTAssertTrue(args.contains("hevc_videotoolbox"))
+        XCTAssertTrue(args.contains("scale=-2:720"))
     }
 
     func testJpgPlanUsesSipsAndDoesNotOverwrite() {
@@ -322,9 +345,9 @@ final class CommandPlannerTests: XCTestCase {
             if case .move(_, let to) = step { return to.path }
             return nil
         }
-        XCTAssertTrue(dests.contains { $0.hasSuffix("/PDF/a.pdf") })
-        XCTAssertTrue(dests.contains { $0.hasSuffix("/PDF/b.pdf") })
-        XCTAssertTrue(dests.contains { $0.hasSuffix("/DOCX/c.docx") })
+        XCTAssertTrue(dests.contains { $0.hasSuffix("/文档/a.pdf") })
+        XCTAssertTrue(dests.contains { $0.hasSuffix("/文档/b.pdf") })
+        XCTAssertTrue(dests.contains { $0.hasSuffix("/文档/c.docx") })
     }
 
     func testZipRefusesMixedFolders() {

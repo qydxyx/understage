@@ -22,8 +22,8 @@ final class PredictorTests: XCTestCase {
         )
         let prediction = Predictor.analyze(plan: plan, folder: folder, selected: [file])
         XCTAssertEqual(prediction.risk, .create)
-        XCTAssertTrue(AutoRunPolicy.allows(prediction, settings: AutoRunSettings(readOnly: true, create: true)))
-        XCTAssertFalse(AutoRunPolicy.allows(prediction, settings: AutoRunSettings(readOnly: true, create: false)))
+        XCTAssertTrue(AutoRunPolicy.allows(prediction, settings: AutoRunSettings(readOnly: true, fileChanges: true)))
+        XCTAssertFalse(AutoRunPolicy.allows(prediction, settings: AutoRunSettings(readOnly: true, fileChanges: false)))
     }
 
     func testSudoIsForbidden() {
@@ -40,7 +40,7 @@ final class PredictorTests: XCTestCase {
         )
         let prediction = Predictor.analyze(plan: plan, folder: folder, selected: [file])
         XCTAssertEqual(prediction.risk, .forbidden)
-        XCTAssertFalse(AutoRunPolicy.allows(prediction, settings: AutoRunSettings(readOnly: true, create: true)))
+        XCTAssertFalse(AutoRunPolicy.allows(prediction, settings: .init(readOnly: true, fileChanges: true)))
     }
 
     func testSSHDirectoryIsForbidden() {
@@ -79,7 +79,7 @@ final class PredictorTests: XCTestCase {
         )
         let prediction = Predictor.analyze(plan: plan, folder: folder, selected: [file])
         XCTAssertEqual(prediction.risk, .network)
-        XCTAssertFalse(AutoRunPolicy.allows(prediction, settings: AutoRunSettings(readOnly: true, create: true)))
+        XCTAssertFalse(AutoRunPolicy.allows(prediction, settings: .init()))
     }
 
     func testTrashIsMutate() {
@@ -94,7 +94,45 @@ final class PredictorTests: XCTestCase {
         )
         let prediction = Predictor.analyze(plan: plan, folder: folder, selected: [file])
         XCTAssertEqual(prediction.risk, .mutate)
-        XCTAssertFalse(AutoRunPolicy.allows(prediction, settings: AutoRunSettings(readOnly: true, create: true)))
+        XCTAssertFalse(AutoRunPolicy.allows(prediction, settings: .init()))
+    }
+
+    func testMoveAutoRunsUntilItWouldReplaceAFile() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("understage-move-policy-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let source = dir.appendingPathComponent("a.txt")
+        try "a".write(to: source, atomically: true, encoding: .utf8)
+        let folder = dir.appendingPathComponent("Docs", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+
+        let intoFolder = CommandPlan(
+            query: "move",
+            summary: "move",
+            steps: [.move(from: source, to: folder)],
+            creates: [],
+            trashes: [],
+            reveal: [],
+            autoRun: false
+        )
+        let into = Predictor.analyze(plan: intoFolder, folder: dir, selected: [source])
+        XCTAssertEqual(into.risk, .mutate)
+        XCTAssertTrue(into.overwrites.isEmpty)
+        XCTAssertTrue(AutoRunPolicy.allows(into, settings: .init()))
+
+        let occupied = folder.appendingPathComponent("a.txt")
+        try "old".write(to: occupied, atomically: true, encoding: .utf8)
+        let replacing = Predictor.analyze(plan: intoFolder, folder: dir, selected: [source])
+        XCTAssertFalse(replacing.overwrites.isEmpty)
+        XCTAssertFalse(AutoRunPolicy.allows(replacing, settings: .init()))
+    }
+
+    func testOldAutoRunSettingsTurnFileChangesOn() throws {
+        let data = Data(#"{"readOnly":true,"create":false}"#.utf8)
+        let settings = try JSONDecoder().decode(AutoRunSettings.self, from: data)
+        XCTAssertTrue(settings.readOnly)
+        XCTAssertTrue(settings.fileChanges)
     }
 
     func testReadOnlyEmptySteps() {
@@ -110,7 +148,7 @@ final class PredictorTests: XCTestCase {
         )
         let prediction = Predictor.analyze(plan: plan, folder: folder, selected: [file])
         XCTAssertEqual(prediction.risk, .read)
-        XCTAssertTrue(AutoRunPolicy.allows(prediction, settings: AutoRunSettings(readOnly: true, create: false)))
+        XCTAssertTrue(AutoRunPolicy.allows(prediction, settings: AutoRunSettings(readOnly: true, fileChanges: false)))
     }
 
     func testBashScriptIsNotAutoRun() {
@@ -127,7 +165,13 @@ final class PredictorTests: XCTestCase {
         )
         let prediction = Predictor.analyze(plan: plan, folder: folder, selected: [file])
         XCTAssertNotEqual(prediction.risk, .read)
-        XCTAssertFalse(AutoRunPolicy.allows(prediction, settings: AutoRunSettings(readOnly: true, create: true)))
+        XCTAssertFalse(AutoRunPolicy.allows(prediction, settings: .init()))
+    }
+
+    func testBareFfmpegResolvesToInstalledBinary() {
+        guard let found = ToolDetector.which("ffmpeg") else { return }
+        XCTAssertEqual(ToolDetector.resolve("ffmpeg"), found)
+        XCTAssertTrue(found.hasPrefix("/opt/") || found.hasPrefix("/usr/"))
     }
 
     func testDenyPipeToShell() {

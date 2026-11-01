@@ -15,8 +15,10 @@ struct Prediction: Equatable, Sendable {
     var trashes: [URL]
     var overwrites: [URL]
     var reasons: [String]
+    /// False when the plan deletes, overwrites, or runs a command we cannot undo.
+    var reversible: Bool
 
-    var canAutoRun: Bool { risk == .read || risk == .create }
+    var canAutoRun: Bool { risk == .read || (reversible && trashes.isEmpty && overwrites.isEmpty && (risk == .create || risk == .mutate)) }
 }
 
 enum Predictor {
@@ -26,10 +28,10 @@ enum Predictor {
         selected: [URL]
     ) -> Prediction {
         if let error = plan.error {
-            return Prediction(risk: .forbidden, creates: [], trashes: [], overwrites: [], reasons: [error])
+            return Prediction(risk: .forbidden, creates: [], trashes: [], overwrites: [], reasons: [error], reversible: false)
         }
         if plan.steps.isEmpty {
-            return Prediction(risk: .read, creates: [], trashes: [], overwrites: [], reasons: [])
+            return Prediction(risk: .read, creates: [], trashes: [], overwrites: [], reasons: [], reversible: true)
         }
 
         var risk: Risk = .read
@@ -37,6 +39,7 @@ enum Predictor {
         var creates = plan.creates
         var trashes = plan.trashes
         var overwrites: [URL] = []
+        var reversible = true
         let workspace = workspaceRoots(folder: folder, selected: selected)
 
         for step in plan.steps {
@@ -45,6 +48,7 @@ enum Predictor {
                 continue
             case .trash(let url):
                 risk = escalate(risk, .mutate)
+                reversible = false
                 trashes.append(url)
                 if let hit = forbiddenPath(url) {
                     return deny("Refuses to touch \(hit)")
@@ -61,8 +65,8 @@ enum Predictor {
                 if let hit = forbiddenPath(from) ?? forbiddenPath(to) {
                     return deny("Refuses to touch \(hit)")
                 }
-                if FileManager.default.fileExists(atPath: to.path) {
-                    overwrites.append(to)
+                if let replaced = moveWouldReplace(from: from, to: to) {
+                    overwrites.append(replaced)
                 }
             case .mergePDF(_, let dest):
                 risk = escalate(risk, .create)
@@ -89,6 +93,7 @@ enum Predictor {
                 let name = URL(fileURLWithPath: executable).lastPathComponent.lowercased()
                 if !allowedExecutable(executable) {
                     risk = escalate(risk, .unknown)
+                    reversible = false
                     reasons.append("Unlisted executable \(name)")
                 }
                 if networkExecutable(name) {
@@ -97,10 +102,12 @@ enum Predictor {
                 }
                 if shellInterpreter(name) {
                     risk = escalate(risk, .unknown)
+                    reversible = false
                     reasons.append("Shell or script interpreter \(name)")
                 }
                 if mutatingExecutable(name) || arguments.contains(where: { $0 == "-rf" || $0 == "--delete" }) {
                     risk = escalate(risk, .mutate)
+                    reversible = false
                 } else if creatingExecutable(name) {
                     risk = escalate(risk, .create)
                 }
@@ -112,6 +119,7 @@ enum Predictor {
                     }
                     if !isInside(url, roots: workspace), !isSystemReadPath(url) {
                         risk = escalate(risk, .unknown)
+                        reversible = false
                         reasons.append("Path outside folder: \(url.path)")
                     }
                     if FileManager.default.fileExists(atPath: url.path), creatingExecutable(name) {
@@ -128,6 +136,7 @@ enum Predictor {
 
         if !overwrites.isEmpty {
             risk = escalate(risk, .mutate)
+            reversible = false
             reasons.append("Would overwrite existing files")
         }
         return Prediction(
@@ -135,8 +144,21 @@ enum Predictor {
             creates: unique(creates),
             trashes: unique(trashes),
             overwrites: unique(overwrites),
-            reasons: reasons
+            reasons: reasons,
+            reversible: reversible && trashes.isEmpty
         )
+    }
+
+    /// Moving onto an existing directory puts the file inside it. Only a file
+    /// already at the final path counts as an overwrite.
+    private static func moveWouldReplace(from: URL, to: URL) -> URL? {
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: to.path, isDirectory: &isDir) else { return nil }
+        if isDir.boolValue {
+            let inside = to.appendingPathComponent(from.lastPathComponent)
+            return FileManager.default.fileExists(atPath: inside.path) ? inside : nil
+        }
+        return to
     }
 
     static func denyReason(_ command: String) -> String? {
@@ -165,7 +187,7 @@ enum Predictor {
     }
 
     private static func deny(_ reason: String) -> Prediction {
-        Prediction(risk: .forbidden, creates: [], trashes: [], overwrites: [], reasons: [reason])
+        Prediction(risk: .forbidden, creates: [], trashes: [], overwrites: [], reasons: [reason], reversible: false)
     }
 
     private static func escalate(_ current: Risk, _ next: Risk) -> Risk {
@@ -258,15 +280,51 @@ enum Predictor {
 
 struct AutoRunSettings: Equatable, Codable, Sendable {
     var readOnly: Bool = true
-    var create: Bool = false
+    /// Moves, renames, copies, and new files. Deletes and overwrites still ask.
+    var fileChanges: Bool = true
+
+    private enum CodingKeys: String, CodingKey {
+        case readOnly
+        case fileChanges
+        case create
+    }
+
+    init(readOnly: Bool = true, fileChanges: Bool = true) {
+        self.readOnly = readOnly
+        self.fileChanges = fileChanges
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        readOnly = try container.decodeIfPresent(Bool.self, forKey: .readOnly) ?? true
+        if let stored = try container.decodeIfPresent(Bool.self, forKey: .fileChanges) {
+            fileChanges = stored
+        } else {
+            // Older settings only had a "create" switch that defaulted off,
+            // so every move stopped for confirmation. Undoable changes now run.
+            fileChanges = true
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(readOnly, forKey: .readOnly)
+        try container.encode(fileChanges, forKey: .fileChanges)
+    }
 }
 
 enum AutoRunPolicy {
     static func allows(_ prediction: Prediction, settings: AutoRunSettings) -> Bool {
         switch prediction.risk {
-        case .read: return settings.readOnly
-        case .create: return settings.create && prediction.overwrites.isEmpty
-        case .mutate, .network, .unknown, .forbidden: return false
+        case .read:
+            return settings.readOnly
+        case .create, .mutate:
+            return settings.fileChanges
+                && prediction.reversible
+                && prediction.trashes.isEmpty
+                && prediction.overwrites.isEmpty
+        case .network, .unknown, .forbidden:
+            return false
         }
     }
 }

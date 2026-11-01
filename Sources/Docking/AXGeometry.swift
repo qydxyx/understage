@@ -39,8 +39,8 @@ enum BarPlacement {
     static let height: CGFloat = 40
     static let overlap: CGFloat = 1
 
-    /// Sit flush under the Finder window. If that would leave the visible
-    /// screen, overlay the window's bottom edge instead.
+    /// Sit flush under the Finder window, and never below the visible frame
+    /// (the Dock occupies the strip under `visible.minY`).
     static func frame(forWindow window: CGRect, on screen: NSScreen, height: CGFloat = height) -> CGRect {
         frame(window: window, visible: screen.visibleFrame, height: height, overlap: overlap)
     }
@@ -57,11 +57,29 @@ enum BarPlacement {
         if below.minY >= visible.minY {
             return below
         }
+        return CGRect(x: x, y: visible.minY, width: width, height: height)
+    }
+
+    /// Window rect that keeps the same top edge and leaves room for the bar
+    /// above the Dock. Nil when the bar already fits, or when shrinking would
+    /// make the window shorter than 200pt.
+    static func windowClearingDock(
+        window: CGRect,
+        visible: CGRect,
+        height: CGFloat,
+        overlap: CGFloat
+    ) -> CGRect? {
+        let needed = height - overlap
+        let room = window.minY - visible.minY
+        let shrink = needed - room
+        guard shrink > 0.5 else { return nil }
+        let minHeight: CGFloat = 200
+        guard window.height - shrink >= minHeight else { return nil }
         return CGRect(
-            x: x,
-            y: window.minY + 4,
-            width: width,
-            height: height
+            x: window.minX,
+            y: window.minY + shrink,
+            width: window.width,
+            height: window.height - shrink
         )
     }
 

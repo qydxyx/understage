@@ -14,6 +14,8 @@ enum CommandPlanner {
             return convert(format, query: query, selected: selected, tools: tools, exists: exists)
         case .scaleVideo(let height):
             return scaleVideo(height, query: query, selected: selected, tools: tools, exists: exists)
+        case .encodeHEVC(let height):
+            return encodeHEVC(height, query: query, selected: selected, tools: tools, exists: exists)
         case .extractAudio:
             return extractAudio(query: query, selected: selected, tools: tools, exists: exists)
         case .stripAudio:
@@ -276,6 +278,45 @@ enum CommandPlanner {
         return CommandPlan(
             query: query,
             summary: "Transcode \(creates.count) video(s) to \(height)p",
+            steps: steps,
+            creates: creates,
+            trashes: [],
+            reveal: creates,
+            autoRun: false
+        )
+    }
+
+    private static func encodeHEVC(
+        _ height: Int?,
+        query: String,
+        selected: [SelectedItem],
+        tools: Toolset,
+        exists: @escaping (URL) -> Bool
+    ) -> CommandPlan {
+        guard let ffmpeg = tools.ffmpeg else { return missingTool(query, "ffmpeg") }
+        let videos = selected.map(\.url).filter { FileCategory.folder(for: $0) == FileCategory.videos }
+        guard !videos.isEmpty else { return fail(query, "Select a video.") }
+        var steps: [PlanStep] = []
+        var creates: [URL] = []
+        let label = height.map { "\($0)p HEVC" } ?? "HEVC"
+        for source in videos {
+            let suffix = height.map { "-\($0)p-hevc.mp4" } ?? "-hevc.mp4"
+            let dest = UniqueURL.next(
+                in: source.deletingLastPathComponent(),
+                name: source.deletingPathExtension().lastPathComponent + suffix,
+                exists: exists
+            )
+            var arguments = ["-hide_banner", "-nostdin", "-i", source.path]
+            if let height {
+                arguments += ["-vf", "scale=-2:\(height)"]
+            }
+            arguments += ["-c:v", "hevc_videotoolbox", "-q:v", "55", "-tag:v", "hvc1", "-c:a", "aac", dest.path]
+            steps.append(.process(executable: ffmpeg, arguments: arguments))
+            creates.append(dest)
+        }
+        return CommandPlan(
+            query: query,
+            summary: "Transcode \(creates.count) video(s) to \(label)",
             steps: steps,
             creates: creates,
             trashes: [],
@@ -758,7 +799,7 @@ enum CommandPlanner {
         var steps: [PlanStep] = []
         var groups = Set<String>()
         for file in sources {
-            let group = file.pathExtension.isEmpty ? "Other" : file.pathExtension.uppercased()
+            let group = FileCategory.folder(for: file)
             groups.insert(group)
             let directory = file.deletingLastPathComponent().appendingPathComponent(group, isDirectory: true)
             let dest = UniqueURL.next(in: directory, name: file.lastPathComponent, exists: { reserved.exists($0) })
@@ -767,7 +808,7 @@ enum CommandPlanner {
         }
         return CommandPlan(
             query: query,
-            summary: "Move \(steps.count) files into \(groups.count) folders by type",
+            summary: "Move \(steps.count) files into \(groups.sorted().joined(separator: ", "))",
             steps: steps,
             creates: [],
             trashes: [],
