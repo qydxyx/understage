@@ -1,4 +1,4 @@
-.PHONY: all gen build test run cli install dist package clean
+.PHONY: all gen build test run cli install no-xcode dist package clean
 
 SCHEME := Understage
 CLI_SCHEME := UnderstageCLI
@@ -19,6 +19,11 @@ test: gen
 
 run: build
 	open "$(DERIVED)/Build/Products/Debug/Understage.app"
+
+# Build without Xcode: Command Line Tools only (no xcodebuild, no xcodegen).
+no-xcode:
+	scripts/build-clt.sh
+	open .clt/Understage.app
 
 cli: gen
 	xcodebuild -scheme $(CLI_SCHEME) -configuration Release -destination '$(DEST)' -derivedDataPath $(DERIVED) -quiet build
