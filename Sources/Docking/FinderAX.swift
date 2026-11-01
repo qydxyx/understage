@@ -28,8 +28,23 @@ enum FinderAX {
 
     static func windows() -> [AXFinderWindow] {
         guard let app = applicationElement() else { return [] }
-        let elements: [AXUIElement] = AXAttr.copy(app, "AXWindows") ?? []
-        return elements.compactMap(describe)
+        // Some Finder builds (macOS 26+) report no AXWindows at all and only
+        // expose windows through AXChildren / main / focused window.
+        var elements: [AXUIElement] = AXAttr.copy(app, "AXWindows") ?? []
+        if elements.isEmpty {
+            let children: [AXUIElement] = AXAttr.copy(app, "AXChildren") ?? []
+            elements = children.filter { element in
+                let role: String = AXAttr.copy(element, "AXRole") ?? ""
+                return role == "AXWindow"
+            }
+            for attribute in ["AXMainWindow", "AXFocusedWindow"] {
+                if let element: AXUIElement = AXAttr.copy(app, attribute) {
+                    elements.append(element)
+                }
+            }
+        }
+        var seen = Set<WindowKey>()
+        return elements.compactMap(describe).filter { seen.insert($0.key).inserted }
     }
 
     static func isFinderFrontmost() -> Bool {

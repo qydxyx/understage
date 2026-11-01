@@ -41,6 +41,8 @@ final class DockingController {
     private var movingUntil: Date = .distantPast
     private var dockSettle: [WindowKey: (frame: CGRect, since: Date)] = [:]
     private var dockApplied: [WindowKey: (frame: CGRect, at: Date)] = [:]
+    private var desktopSummoned = false
+    private var desktopSummonedAt = Date.distantPast
 
     private init() {}
 
@@ -75,9 +77,11 @@ final class DockingController {
             return
         }
 
+        summonDesktopBar()
         refresh()
 
         if let focused = FinderAX.focusedWindow(), let panel = panelMatching( focused) {
+            desktopSummoned = false
             panel.focusForTyping()
             return
         }
@@ -93,6 +97,7 @@ final class DockingController {
     }
 
     func prefillFrontBar(_ query: String, submit: Bool) {
+        summonDesktopBar()
         refresh()
         let panel: StageBarPanel?
         if let focused = FinderAX.focusedWindow(), let existing = panelMatching( focused) {
@@ -129,6 +134,15 @@ final class DockingController {
 
         let finderFront = FinderAX.isFinderFrontmost()
 
+        // The desktop bar is summon-only; drop it once it lost focus.
+        if desktopSummoned,
+           !NSApp.isActive,
+           panels[.desktop]?.isKeyWindow != true,
+           Date().timeIntervalSince(desktopSummonedAt) > 1
+        {
+            desktopSummoned = false
+        }
+
         guard appModel.permissions.accessibility else {
             pauseDisplayLink()
             if panels.isEmpty {
@@ -138,8 +152,20 @@ final class DockingController {
             return
         }
 
+        // Stage Manager keeps other stages' windows in the window list, and the
+        // panel itself activates this app, so allow both frontmost states.
+        guard finderFront || NSApp.isActive || desktopSummoned else {
+            pauseDisplayLink()
+            desktopSummoned = false
+            hideAll()
+            if appModel.trackedWindowCount != 0 {
+                appModel.trackedWindowCount = 0
+            }
+            return
+        }
+
         let axWindows = FinderAX.windows().filter { !$0.isMinimized }
-        let onScreenIDs = onScreenFinderWindowIDs()
+        let onScreenFrames = onScreenFinderFrames()
         refreshScriptingIfNeeded()
 
         var desired: [WindowKey: StageContext] = [:]
@@ -147,12 +173,18 @@ final class DockingController {
         var consumed = Set<WindowKey>()
         let frontIndex = frontWindowIndex(in: axWindows)
         for (index, window) in axWindows.enumerated() {
-            if case .cgWindow(let id) = window.key, !onScreenIDs.isEmpty, !onScreenIDs.contains(id) {
-                continue
+            // Stage Manager renders other Spaces' windows as thumbnails and AX may
+            // still report the parked frame, so trust only a live frame at the same spot.
+            if case .cgWindow(let id) = window.key {
+                guard let live = onScreenFrames[id],
+                      framesClose(AXGeometry.cocoaRect(axPosition: live.origin, axSize: live.size),
+                                  window.cocoaFrame, tolerance: 60)
+                else { continue }
             }
             if case .fallback = window.key, !finderFront {
                 continue
             }
+            guard stageVisible(window.cocoaFrame) else { continue }
             let key = stableKey(for: window, consumed: consumed)
             consumed.insert(key)
             let folder = window.documentURL
@@ -178,7 +210,11 @@ final class DockingController {
         }
         axElements = elements
 
-        if desired.isEmpty && !finderFront {
+        if !desired.isEmpty {
+            desktopSummoned = false
+        }
+
+        if desired.isEmpty && !finderFront && !desktopSummoned {
             pauseDisplayLink()
             hideAll()
             if appModel.trackedWindowCount != 0 {
@@ -187,7 +223,7 @@ final class DockingController {
             return
         }
 
-        if desired.isEmpty && finderFront {
+        if desired.isEmpty && desktopSummoned {
             if let screen = NSScreen.main {
                 let folder = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Desktop")
                 desired[.desktop] = StageContext(
@@ -246,6 +282,10 @@ final class DockingController {
                     axPosition: cgRect.origin,
                     axSize: cgRect.size
                 )
+                guard stageVisible(cocoa) else {
+                    panel.orderOut(nil)
+                    continue
+                }
                 if place(panel, under: cocoa, desktop: false, key: key, element: axElements[key]) {
                     movingUntil = Date().addingTimeInterval(0.2)
                 }
@@ -345,16 +385,28 @@ final class DockingController {
         return target
     }
 
-    private func framesClose(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
-        abs(lhs.minX - rhs.minX) < 2
-            && abs(lhs.minY - rhs.minY) < 2
-            && abs(lhs.width - rhs.width) < 2
-            && abs(lhs.height - rhs.height) < 2
+    /// Stage Manager parks inactive stages off-screen (negative x). A bar
+    /// following one of those windows would float over an empty backdrop.
+    private func stageVisible(_ frame: CGRect) -> Bool {
+        NSScreen.screens.contains { $0.frame.intersects(frame) }
     }
 
-    private func onScreenFinderWindowIDs() -> Set<UInt32> {
-        guard let pid = FinderAX.finderPID else { return [] }
-        return Set(CGWindowFrames.onScreen(ownerPID: pid).keys.map { UInt32($0) })
+    private func framesClose(_ lhs: CGRect, _ rhs: CGRect, tolerance: CGFloat = 2) -> Bool {
+        abs(lhs.minX - rhs.minX) < tolerance
+            && abs(lhs.minY - rhs.minY) < tolerance
+            && abs(lhs.width - rhs.width) < tolerance
+            && abs(lhs.height - rhs.height) < tolerance
+    }
+
+    private func onScreenFinderFrames() -> [CGWindowID: CGRect] {
+        guard let pid = FinderAX.finderPID else { return [:] }
+        return CGWindowFrames.onScreen(ownerPID: pid)
+    }
+
+    /// The desktop bar is summon-only: an empty Space must stay empty.
+    private func summonDesktopBar() {
+        desktopSummoned = true
+        desktopSummonedAt = Date()
     }
 
     private func showOnboardingBar() {
