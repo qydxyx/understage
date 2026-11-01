@@ -199,9 +199,19 @@ enum InstantParser {
         let phrases = [
             "by type", "by file type", "according to type", "according to their type",
             "按类型", "按文件类型", "根据类型", "根据文件类型", "按扩展名", "分门别类",
-            "不同类型", "不同的文件夹", "different folders",
+            "不同类型", "不同的文件夹", "different folders", "整理文件", "整理一下", "分类整理",
         ]
-        return phrases.contains { compact.contains($0) }
+        if phrases.contains(where: { compact.contains($0) }) { return true }
+        // Bare imperatives ("整理", "分类", "organize") are the common way to ask
+        // this with a multi-file selection, and they must not need a model.
+        var head = compact
+        for tail in ["一下这些文件", "这些文件", "所选文件", "一下文件", "文件", "文件夹",
+                     "these files", "the files", "selected files", "files", "file",
+                     "这些", "所选", "一下", "吧"] {
+            if head.hasSuffix(tail) { head = String(head.dropLast(tail.count)) }
+        }
+        let verbs = ["整理", "分类", "归类", "归档", "organize", "organise", "tidy", "sort"]
+        return verbs.contains(head.trimmingCharacters(in: .whitespaces))
     }
 
     /// Single common words only match the whole command. A sentence that merely ends in "type" is not a file-type lookup.
