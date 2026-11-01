@@ -36,7 +36,7 @@ enum AXGeometry {
 }
 
 enum BarPlacement {
-    static let height: CGFloat = 52
+    static let height: CGFloat = 40
     static let overlap: CGFloat = 1
 
     /// Sit flush under the Finder window. If that would leave the visible

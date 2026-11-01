@@ -35,11 +35,11 @@ final class StageBarModel: ObservableObject {
     private var lastResultText = ""
 
     var barHeight: CGFloat {
-        if !pendingChoices.isEmpty { return 156 }
-        switch phase {
-        case .idle: return showIdeas ? 120 : BarPlacement.height
-        case .thinking, .preview, .running, .result: return 104
-        }
+        var height = BarPlacement.height
+        if case .idle = phase, showIdeas { height += 28 }
+        if case .idle = phase {} else { height += 22 }
+        if !pendingChoices.isEmpty { height += 28 }
+        return height
     }
 
     init(permissions: PermissionState = PermissionGate.current()) {

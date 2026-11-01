@@ -9,8 +9,8 @@ struct StageBarView: View {
     var onFieldFocused: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
                 if !model.permissions.accessibility {
                     permissionRow
                 } else {
@@ -27,16 +27,16 @@ struct StageBarView: View {
                 }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .background(.ultraThinMaterial)
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .shadow(color: .black.opacity(0.18), radius: 8, y: 2)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .shadow(color: .black.opacity(0.12), radius: 4, y: 1)
         .onChange(of: model.focusToken) { _, _ in
             isFieldFocused = true
         }
@@ -86,15 +86,18 @@ struct StageBarView: View {
 
     @ViewBuilder
     private var contextRow: some View {
-        Image(systemName: model.context?.isDesktop == true ? "desktopcomputer" : "folder")
-            .foregroundStyle(.secondary)
         Text(folderLabel)
-            .font(.system(.body, design: .rounded))
-            .fontWeight(.medium)
+            .font(.caption)
+            .foregroundStyle(.secondary)
             .lineLimit(1)
-            .frame(maxWidth: 160, alignment: .leading)
-        chips
-        TextField(model.awaitingReply ? "Reply…" : "Enter query or command", text: $model.query)
+            .frame(maxWidth: 96, alignment: .leading)
+        if selectionCount > 0 {
+            Text("\(selectionCount)")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .help(selectionNames)
+        }
+        TextField(model.awaitingReply ? "Reply…" : "Command", text: $model.query)
             .textFieldStyle(.plain)
             .focused($isFieldFocused)
             .disabled({
@@ -109,33 +112,29 @@ struct StageBarView: View {
                 onFieldFocused()
             }
         if !model.permissions.finderAutomation {
-            Button("Grant Finder Access") {
+            Button("访达") {
                 PermissionGate.promptFinderAutomation()
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            .buttonStyle(.plain)
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .help("Grant Finder Access")
         }
         Button {
             model.toggleIdeas()
         } label: {
             Image(systemName: model.showIdeas ? "lightbulb.fill" : "lightbulb")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
         .buttonStyle(.plain)
         .help("Ideas")
         Button {
             SettingsPresenter.shared.open()
         } label: {
-            HStack(spacing: 4) {
-                Text(settings.vendor.displayName)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                Image(systemName: "gearshape")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            Image(systemName: "gearshape")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
         .buttonStyle(.plain)
         .help("Settings")
@@ -157,20 +156,23 @@ struct StageBarView: View {
                     .lineLimit(1)
                 Spacer()
                 Button("Cancel", action: model.cancel)
-                    .controlSize(.small)
+                    .buttonStyle(.plain)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
         case .preview(let plan):
             HStack(spacing: 8) {
                 Text(previewText(plan))
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(1)
                 Spacer()
                 Button("Cancel", action: model.cancel)
-                    .controlSize(.small)
+                    .buttonStyle(.plain)
+                    .font(.caption2)
                 Button("Run", action: model.confirmPreview)
                     .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
+                    .controlSize(.mini)
                     .disabled(plan.error != nil || plan.missingTool != nil)
             }
         case .running(let plan):
@@ -182,22 +184,26 @@ struct StageBarView: View {
                     .lineLimit(1)
                 Spacer()
                 Button("Cancel", action: model.cancel)
-                    .controlSize(.small)
+                    .buttonStyle(.plain)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
         case .result(let ok, let text):
             HStack(spacing: 8) {
                 Text(text)
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(model.awaitingReply ? Color.primary : (ok ? Color.secondary : Color.red))
-                    .lineLimit(model.awaitingReply ? 4 : 3)
+                    .lineLimit(1)
                 Spacer()
                 if undo.last != nil {
                     Button("Undo", action: model.undoLast)
-                        .controlSize(.small)
+                        .buttonStyle(.plain)
+                        .font(.caption2)
                 }
                 if ok, !model.awaitingReply {
                     Button("★") { model.favoriteLast() }
-                        .controlSize(.small)
+                        .buttonStyle(.plain)
+                        .font(.caption2)
                         .help("Save favorite")
                 }
             }
@@ -257,29 +263,11 @@ struct StageBarView: View {
         return String(localized: "Finder")
     }
 
-    @ViewBuilder
-    private var chips: some View {
-        let items = model.context?.selected ?? []
-        if items.isEmpty {
-            Text("No selection")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        } else {
-            HStack(spacing: 6) {
-                ForEach(items.prefix(3)) { item in
-                    Text(item.name)
-                        .font(.caption)
-                        .lineLimit(1)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.primary.opacity(0.08), in: Capsule())
-                }
-                if items.count > 3 {
-                    Text("+\(items.count - 3)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
+    private var selectionCount: Int {
+        model.context?.selected.count ?? 0
+    }
+
+    private var selectionNames: String {
+        (model.context?.selected ?? []).prefix(8).map(\.name).joined(separator: ", ")
     }
 }
