@@ -25,6 +25,9 @@ enum PermissionGate {
     }
 
     static func promptFinderAutomation() {
+        // Ask the system directly: only a real request creates the Automation entry
+        // the user needs to toggle. Settings alone stays empty until something asks.
+        if finderAutomationGranted(prompt: true) { return }
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
             NSWorkspace.shared.open(url)
         }

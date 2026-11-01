@@ -59,6 +59,9 @@ targets:
         INFOPLIST_FILE: App/Info.plist
     entitlements:
       path: App/Understage.entitlements
+      properties:
+        # Hardened runtime refuses AppleEvents prompts without this entitlement.
+        com.apple.security.automation.apple-events: true
   UnderstageTests:
     type: bundle.unit-test
     platform: macOS
