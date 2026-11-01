@@ -3,13 +3,27 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject private var settings = VendorSettings.shared
     @ObservedObject private var rules = RuleStore.shared
-    @State private var apiKey: String = ""
-    @State private var newTrigger = ""
-    @State private var newInstruction = ""
+    @StateObject private var form = SettingsForm()
 
     var body: some View {
+        TabView {
+            modelTab.tabItem { Text("Model") }
+            agentTab.tabItem { Text("Agent") }
+            shortcutTab.tabItem { Text("Shortcut") }
+            rulesTab.tabItem { Text("Rules") }
+            favoritesTab.tabItem { Text("Favorites") }
+            autoRunTab.tabItem { Text("Auto-run") }
+        }
+        .frame(width: 540, height: 400)
+        .onAppear {
+            form.apiKey = settings.apiKey() ?? ""
+            Task { await settings.probeLocal() }
+        }
+    }
+
+    private var modelTab: some View {
         Form {
-            Section("Model") {
+            Section {
                 Picker("Vendor", selection: $settings.vendor) {
                     ForEach(VendorID.allCases) { id in
                         Text(id.displayName).tag(id)
@@ -17,15 +31,15 @@ struct SettingsView: View {
                 }
                 .onChange(of: settings.vendor) { _, new in
                     settings.selectVendor(new)
-                    apiKey = settings.apiKey() ?? ""
+                    form.apiKey = settings.apiKey() ?? ""
                 }
                 TextField("Model", text: $settings.model)
                 if settings.vendor == .custom {
                     TextField("Base URL", text: $settings.customBaseURL)
                 }
                 if settings.vendor.needsKey {
-                    SecureField("API key", text: $apiKey)
-                        .onChange(of: apiKey) { _, new in
+                    SecureField("API key", text: $form.apiKey)
+                        .onChange(of: form.apiKey) { _, new in
                             settings.setAPIKey(new)
                         }
                 } else {
@@ -33,13 +47,25 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            Section("Agent") {
+        }
+        .formStyle(.grouped)
+    }
+
+    private var agentTab: some View {
+        Form {
+            Section {
                 Toggle("Allow multi-step agent", isOn: $settings.allowAgent)
                 Text("When on, longer requests can list, inspect, and retry instead of one command.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            Section("Shortcut") {
+        }
+        .formStyle(.grouped)
+    }
+
+    private var shortcutTab: some View {
+        Form {
+            Section {
                 Picker("Global Hotkey", selection: $settings.hotKey) {
                     ForEach(HotKeyOption.allCases) { opt in
                         Text(opt.displayName).tag(opt)
@@ -59,7 +85,17 @@ struct SettingsView: View {
                         .foregroundStyle(.red)
                 }
             }
-            Section("Rules") {
+        }
+        .formStyle(.grouped)
+    }
+
+    private var rulesTab: some View {
+        Form {
+            Section {
+                if rules.rules.isEmpty {
+                    Text("No rules yet.")
+                        .foregroundStyle(.secondary)
+                }
                 ForEach(rules.rules) { rule in
                     HStack {
                         VStack(alignment: .leading) {
@@ -73,16 +109,28 @@ struct SettingsView: View {
                             .controlSize(.small)
                     }
                 }
-                TextField("Trigger (optional)", text: $newTrigger)
-                TextField("Instruction", text: $newInstruction)
-                Button("Add rule") {
-                    rules.addRule(trigger: newTrigger, instruction: newInstruction)
-                    newTrigger = ""
-                    newInstruction = ""
-                }
-                .disabled(newInstruction.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            Section("Favorites") {
+            Section {
+                TextField("Trigger (optional)", text: $form.newTrigger)
+                TextField("Instruction", text: $form.newInstruction)
+                Button("Add rule") {
+                    rules.addRule(trigger: form.newTrigger, instruction: form.newInstruction)
+                    form.newTrigger = ""
+                    form.newInstruction = ""
+                }
+                .disabled(form.newInstruction.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var favoritesTab: some View {
+        Form {
+            Section {
+                if rules.favorites.isEmpty {
+                    Text("Star a successful result in the bar to save it.")
+                        .foregroundStyle(.secondary)
+                }
                 ForEach(rules.favorites) { favorite in
                     HStack {
                         Text(favorite.query)
@@ -91,13 +139,14 @@ struct SettingsView: View {
                             .controlSize(.small)
                     }
                 }
-                if rules.favorites.isEmpty {
-                    Text("Star a successful result in the bar to save it.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
             }
-            Section("Auto-run") {
+        }
+        .formStyle(.grouped)
+    }
+
+    private var autoRunTab: some View {
+        Form {
+            Section {
                 Toggle("Read-only commands", isOn: $settings.autoRun.readOnly)
                 Toggle("File changes that can be undone", isOn: $settings.autoRun.fileChanges)
                 Text("Deletes, overwrites, network, and shell commands still ask first.")
@@ -106,11 +155,6 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(minWidth: 460, minHeight: 520)
-        .onAppear {
-            apiKey = settings.apiKey() ?? ""
-            Task { await settings.probeLocal() }
-        }
     }
 
     private var localStatus: String {
@@ -123,4 +167,12 @@ struct SettingsView: View {
             ""
         }
     }
+}
+
+/// Plain ObservableObject: the SwiftUI `@State` macros need Xcode's macro plugin,
+/// this file must also compile with the bare command line tools.
+final class SettingsForm: ObservableObject {
+    @Published var apiKey = ""
+    @Published var newTrigger = ""
+    @Published var newInstruction = ""
 }
